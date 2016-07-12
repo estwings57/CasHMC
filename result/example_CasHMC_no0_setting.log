@@ -1,0 +1,64 @@
+****************************************************************
+*                      CasHMC version 1.0                      *
+*                       setting log file                       *
+*            Date : 2016/05/09      Time : 22:47:04            *
+****************************************************************
+
+        ==== Memory transaction setting ====
+       CPU cycles to be simulated : 100000
+            CPU clock period [ns] : 0.5
+ Data size of DRAM request [byte] : 32
+          Request buffer max size : 32
+                       Trace type : file
+                  Trace file name : ./trace/64block/mase_trace_bzip2_base.alpha.v0.trc
+
+              ==== Link(SerDes) setting ====
+                     CRC checking : Enable
+              The number of links : 2
+                       Link width : 8
+                Link speed [Gb/s] : 30
+ Link master/slave max buffer size: 64
+            Retry buffer max size : 64
+      Time to calculate CRC [clk] : 0.01
+       The number of IRTRY packet : 2
+              Retry attempt limit : 2
+       Link BER (the power of 10) : -10
+             Link priority scheme : 0
+
+              ==== DRAM general setting ====
+                   Memory density : 4
+             The number of vaults : 32
+              The number of banks : 8
+               The number of rows : 1024
+            The number of columns : 1024
+ Address mapping (Max block size) : 32
+ Vault controller max buffer size : 32
+           Command queue max size : 16
+          Command queue structure : Bank-level command queue (Bank-Level parallelism)
+                Memory scheduling : open page policy
+  The maximum row buffer accesses : 8
+                  Power-down mode : Enable
+
+ ==== DRAM timing setting ====
+ Refresh period : 7800
+ tCK    [ns] : 1.875
+  CL   [clk] : 8
+  AL   [clk] : 0
+ tRAS  [clk] : 19
+ tRCD  [clk] : 8
+ tRRD  [clk] : 4
+ tRC   [clk] : 26
+ tRP   [clk] : 8
+ tCCD  [clk] : 3
+ tRTP  [clk] : 4
+ tWTR  [clk] : 4
+ tWR   [clk] : 8
+ tRTRS [clk] : 1
+ tRFC  [clk] : 59
+ tFAW  [clk] : 16
+ tCKE  [clk] : 3
+ tXP   [clk] : 4
+ tCMD  [clk] : 1
+  RL   [clk] : 8
+  WL   [clk] : 6
+  BL   [clk] : 1
