@@ -1,0 +1,84 @@
+CasHMC: A Cycle-accurate Simulator for Hybrid Memory Cube
+version CasHMC v1.0 - 2016.05.07
+
+1. Developer
+
+  Dong-Ik Jeon
+  Ki-Seok Chung
+  Hanyang University
+  estwings57 [at] gmail [dot] com
+
+  
+2. About CasHMC
+
+  CasHMC provides a cycle-by-cycle simulation of every module in HMC, and 
+  generates analysis results including a bandwidth graph and statistical data. 
+  It supports HMC unique features, such as the high speed serial link, 
+  the packet-based interface, and the vault-based DRAM structure. Since CasHMC 
+  simulates all HMC modules at a cycle-accurate level, it is capable of deriving 
+  precise simulation results and analyses.
+
+  Furthemore, CasHMC is implemented in C++ as a single wrapped object that 
+  includes a HMC controller, communication links, and the HMC memory. 
+  Instantiating this single wrapped object facilitates simultaneous simulation 
+  in parallel with other simulators that generate memory access patterns 
+  such as a processor simulator or a memory trace generator.
+
+  
+3. Getting CasHMC
+
+  BOBSim is available on github.
+  https://github.com/estwings57/CasHMC
+  
+  
+4. Folder directory
+  
+  graph : Gnuplot script file and a graph data file after a simulation run is over
+  result : Log files after a simulation run is over
+  sources : All CasHMC source files
+  trace : The example of trace files (The files are extracted from SPEC CPU2006 benchmarks)
+  
+  
+5. Building CasHMC
+  
+  To build an optimized CasHMC
+  
+  $ make
+  
+  
+6. Running CasHMC
+  
+  > Command line arguments
+  
+  -c (--cycle)   : The number of CPU cycles to be simulated
+  -t (--trace)   : Trace type ('random' or 'file')
+  -u (--util)    : Requests frequency (0 = no requests, 1 = as fast as possible) [Default 0.1]
+  -r (--rwratio) : (%) The percentage of reads in request stream [Default 80]
+  -f (--file)    : Trace file name
+  -h (--help)    : Simulation option help
+  
+  > The example of trace generator mode
+ 
+  $ ./CasHMC -c 100000 -t random -u 0.1 -r 60
+  
+  > The example of trace file mode
+  
+  $ ./CasHMC -c 100000 -t file -f ./trace/SPEC_CPU2006_example/mase_trace_bzip2_base.alpha.v0.trc
+  
+  > The example of CasHMCWrapper object instantiating
+  
+  In a source file
+  
+    #include "CasHMCWrapper.h“
+    #include "Transaction.h"
+    ...
+
+      CasHMCWrapper *casHMCWrapper = new CasHMCWrapper();
+      ...
+
+      TransactionType tranType = DATA_READ;
+      uint64_t physicalAddress = 0x0123456789abcdef;
+      unsigned dataSize = 32;
+      Transaction *newTran = new Transaction(tranType, addr, dataSize, casHMCWrapper);
+      casHMCWrapper->ReceiveTran(newTran);
+      ...
