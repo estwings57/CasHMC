@@ -511,6 +511,7 @@ void CasHMCWrapper::PrintSetting(struct tm t)
 	settingOut<<ALI(36)<<" Link width : "<<LINK_WIDTH<<endl;
 	settingOut<<ALI(36)<<" Link speed [Gb/s] : "<<LINK_SPEED<<endl;
 	settingOut<<ALI(36)<<" Link master/slave max buffer size: "<<MAX_LINK_BUF<<endl;
+	settingOut<<ALI(36)<<" Crossbar switch buffer size : "<<MAX_CROSS_BUF<<endl;
 	settingOut<<ALI(36)<<" Retry buffer max size : "<<MAX_RETRY_BUF<<endl;
 	settingOut<<ALI(36)<<" Time to calculate CRC [clk] : "<<CRC_CAL_CYCLE<<endl;
 	settingOut<<ALI(36)<<" The number of IRTRY packet : "<<NUM_OF_IRTRY<<endl;
