@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -39,13 +39,13 @@ enum PacketType
 	FLOW
 };
 
-enum CommandType
+enum PacketCommandType
 {
 	//Request commands
 	WR16=8, WR32, WR48, WR64, WR80, WR96, WR112, WR128, MD_WR, WR256=79, 				//WRITE Requests
 	P_WR16=24, P_WR32, P_WR48, P_WR64, P_WR80, P_WR96, P_WR112, P_WR128, P_WR256=95, 	//POSTED WRITE Requests
 	RD16=48, RD32, RD48, RD64, RD80, RD96, RD112, RD128, RD256=119, MD_RD=40, 			//READ Requests
-	//ATOMICS commands to be implemented in next version
+	//ATOMICS commands
 	_2ADD8=18, ADD16, P_2ADD8=34, P_ADD16, _2ADDS8R=82, ADDS16R, INC8=80, P_INC8=84, 	//ARITHMETIC ATOMICS
 	XOR16=64, OR16, NOR16, AND16, NAND16, 												//BOOLEAN ATOMICS
 	CASGT8=96, CASLT8, CASGT16, CASLT16, CASEQ8, CASZERO16, EQ16=104, EQ8, 				//COMPARISON ATOMICS
@@ -61,8 +61,8 @@ class Packet
 {
 public:
 	//Functions
-	Packet(PacketType packet, CommandType cmd, uint64_t addr, unsigned cub, unsigned lng, TranTrace *lat);	//Request Packet
-	Packet(PacketType packet, CommandType cmd, unsigned tag, unsigned lng, TranTrace *lat);				//Response Packet
+	Packet(PacketType packet, PacketCommandType cmd, uint64_t addr, unsigned cub, unsigned lng, TranTrace *lat);	//Request Packet
+	Packet(PacketType packet, PacketCommandType cmd, unsigned tag, unsigned lng, TranTrace *lat);				//Response Packet
 	virtual ~Packet();
 	Packet(const Packet &f);
 	unsigned long GetCRC();
@@ -81,7 +81,7 @@ public:
 	
 	//Packet Common Fields
 	unsigned CUB, TAG, LNG;
-	CommandType CMD;
+	PacketCommandType CMD;
 	
 	unsigned CRC, RTC, SLID;
 	unsigned SEQ, FRP, RRP;

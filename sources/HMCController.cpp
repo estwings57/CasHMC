@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -75,24 +75,54 @@ void HMCController::Update()
 {
 	//Downstream buffer state
 	if(bufPopDelay==0 && downBuffers.size() > 0) {
+		//Check packet dependency
+		int link = -1;
 		for(int l=0; l<NUM_LINKS; l++) {
-			int link = FindAvailableLink(inServiceLink, downLinkMasters);
-			if(link == -1) {
-				//DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) all link buffer FULL");
+			for(int i=0; i<downLinkMasters[l]->Buffers.size(); i++) {
+				if(downLinkMasters[l]->Buffers[i] != NULL) {
+					unsigned maxBlockBit = _log2(ADDRESS_MAPPING);
+					if((downLinkMasters[l]->Buffers[i]->ADRS >> maxBlockBit) == (downBuffers[0]->address >> maxBlockBit)) {
+						link = l;
+						DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) This packet has a DEPENDENCY with "<<*downLinkMasters[l]->Buffers[i]);
+						break;
+					}
+				}
 			}
-			else if(downLinkMasters[link]->currentState != LINK_RETRY) {
-				Packet *packet = ConvTranIntoPacket(downBuffers[0]);
-				if(downLinkMasters[link]->Receive(packet)) {
-					DE_CR(ALI(18)<<header<<ALI(15)<<*packet<<"Down) SENDING packet to link mater "<<link<<" (LM_D"<<link<<")");
-					delete downBuffers[0];
-					downBuffers.erase(downBuffers.begin());
-					break;
+		}
+		
+		if(link == -1) {
+			for(int l=0; l<NUM_LINKS; l++) {
+				link = FindAvailableLink(inServiceLink, downLinkMasters);
+				if(link == -1) {
+					//DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) all link buffer FULL");
 				}
-				else {
-					packet->ReductGlobalTAG();
-					delete packet;
-					//DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<"Down) Link "<<link<<" buffer FULL");	
+				else if(downLinkMasters[link]->currentState != LINK_RETRY) {
+					Packet *packet = ConvTranIntoPacket(downBuffers[0]);
+					if(downLinkMasters[link]->Receive(packet)) {
+						DE_CR(ALI(18)<<header<<ALI(15)<<*packet<<"Down) SENDING packet to link mater "<<link<<" (LM_D"<<link<<")");
+						delete downBuffers[0];
+						downBuffers.erase(downBuffers.begin());
+						break;
+					}
+					else {
+						packet->ReductGlobalTAG();
+						delete packet;
+						//DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<"Down) Link "<<link<<" buffer FULL");	
+					}
 				}
+			}
+		}
+		else {
+			Packet *packet = ConvTranIntoPacket(downBuffers[0]);
+			if(downLinkMasters[link]->Receive(packet)) {
+				DE_CR(ALI(18)<<header<<ALI(15)<<*packet<<"Down) SENDING packet to link mater "<<link<<" (LM_D"<<link<<")");
+				delete downBuffers[0];
+				downBuffers.erase(downBuffers.begin());
+			}
+			else {
+				packet->ReductGlobalTAG();
+				delete packet;
+				//DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<"Down) Link "<<link<<" buffer FULL");	
 			}
 		}
 	}
@@ -126,7 +156,7 @@ void HMCController::Update()
 Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 {
 	unsigned packetLength;
-	CommandType cmdtype;
+	PacketCommandType cmdtype;
 	
 	switch(tran->transactionType) {
 		case DATA_READ:
@@ -163,6 +193,36 @@ Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 					exit(0);
 			}
 			break;
+		//Arithmetic atomic
+		case ATM_2ADD8:		cmdtype = _2ADD8;	packetLength = 2;	break;
+		case ATM_ADD16:		cmdtype = ADD16;	packetLength = 2;	break;
+		case ATM_P_2ADD8:	cmdtype = P_2ADD8;	packetLength = 2;	break;
+		case ATM_P_ADD16:	cmdtype = P_ADD16;	packetLength = 2;	break;
+		case ATM_2ADDS8R:	cmdtype = _2ADDS8R;	packetLength = 2;	break;
+		case ATM_ADDS16R:	cmdtype = ADDS16R;	packetLength = 2;	break;
+		case ATM_INC8:		cmdtype = INC8;		packetLength = 1;	break;
+		case ATM_P_INC8:	cmdtype = P_INC8;	packetLength = 1;	break;
+		//Boolean atomic
+		case ATM_XOR16:		cmdtype = XOR16;	packetLength = 2;	break;
+		case ATM_OR16:		cmdtype = OR16;		packetLength = 2;	break; 
+		case ATM_NOR16:		cmdtype = NOR16;	packetLength = 2;	break; 
+		case ATM_AND16:		cmdtype = AND16;	packetLength = 2;	break;	
+		case ATM_NAND16:	cmdtype = NAND16;	packetLength = 2;	break;	
+		//Comparison atomic
+		case ATM_CASGT8:	cmdtype = CASGT8;	packetLength = 2;	break;
+		case ATM_CASLT8:	cmdtype = CASLT8;	packetLength = 2;	break; 
+		case ATM_CASGT16:	cmdtype = CASGT16;	packetLength = 2;	break; 
+		case ATM_CASLT16:	cmdtype = CASLT16;	packetLength = 2;	break;											
+		case ATM_CASEQ8:	cmdtype = CASEQ8;	packetLength = 2;	break;											
+		case ATM_CASZERO16:	cmdtype = CASZERO16;packetLength = 2;	break;											
+		case ATM_EQ16:		cmdtype = EQ16;		packetLength = 2;	break;											
+		case ATM_EQ8:		cmdtype = EQ8;		packetLength = 2;	break;											
+		//Bitwise atomic
+		case ATM_BWR:		cmdtype = BWR;		packetLength = 2;	break;
+		case ATM_P_BWR:		cmdtype = P_BWR;	packetLength = 2;	break; 
+		case ATM_BWR8R:		cmdtype = BWR8R;	packetLength = 2;	break; 
+		case ATM_SWAP16:	cmdtype = SWAP16;	packetLength = 2;	break;	
+			
 		default:
 			ERROR(header<<"   == Error - WRONG transaction type  (CurrentClock : "<<currentClockCycle<<")");
 			ERROR(*tran);

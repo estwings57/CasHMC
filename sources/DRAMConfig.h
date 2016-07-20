@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -32,7 +32,7 @@ enum MAPPING_SCHEME
 static MAPPING_SCHEME ADDRESS_MAPPING = MAX_BLOCK_32B;
 
 static bool QUE_PER_BANK = true;	//Command queue structure (If true, every bank has respective command queue [Bank-Level parallelism])
-static bool OPEN_PAGE = true;		//Whether open page policy or close page policy
+static bool OPEN_PAGE = false;		//Whether open page policy or close page policy
 static int MAX_ROW_ACCESSES = 8;	//The number of consecutive access to identical row address (It should be bigger than max block(ADDRESS_MAPPING) / 32)
 static bool USE_LOW_POWER = true;	//Power-down mode setting
 

@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -131,6 +131,7 @@ void DRAM::receiveCMD(DRAMCommand *recvCMD)
 		case PRECHARGE:
 			bankStates[recvCMD->bank]->currentBankState = PRECHARGING;
 			bankStates[recvCMD->bank]->lastCommand = PRECHARGE;
+			bankStates[recvCMD->bank]->openRowAddress = 0;
 			bankStates[recvCMD->bank]->stateChangeCountdown = tRP;
 			bankStates[recvCMD->bank]->nextActivate = max(currentClockCycle + tRP, bankStates[recvCMD->bank]->nextActivate);
 			DEBUG(ALI(18)<<header<<ALI(15)<<*recvCMD<<"      next ACTIVATE time : "<<bankStates[recvCMD->bank]->nextActivate<<" [HMC clk]");
@@ -150,7 +151,7 @@ void DRAM::receiveCMD(DRAMCommand *recvCMD)
 			ERROR(header<<"  (DR) == Error - Wrong command type    popped command : "<<*recvCMD<<"  (CurrentClock : "<<currentClockCycle<<")");
 			exit(0);
 			break;
-	}recvCMD=NULL;
+	}
 }
 
 //
@@ -275,6 +276,9 @@ void DRAM::PrintState()
 			previousBankState[b] = bankStates[b]->currentBankState;
 			STATEN("[");
 			STATEN(*bankStates[b]);
+			if(bankStates[b]->currentBankState == ROW_ACTIVE) {
+				STATEN("-"<<bankStates[b]->openRowAddress);
+			}
 			STATEN("]");
 		}
 		STATEN(endl);

@@ -1,5 +1,5 @@
 ##################################################################################
-#  CasHMC v1.0 - 2016.05.07
+#  CasHMC v1.1 - 2016.07.21
 #  A Cycle-accurate Simulator for Hybrid Memory Cube
 #
 #  Copyright (c) 2016, Dong-Ik Jeon

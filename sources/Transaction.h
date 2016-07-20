@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -35,7 +35,12 @@ enum TransactionType
 {
 	DATA_READ,
 	DATA_WRITE,
-	RETURN_DATA
+	RETURN_DATA,
+	//ATOMICS commands for HMC
+	ATM_2ADD8, ATM_ADD16, ATM_P_2ADD8, ATM_P_ADD16, ATM_2ADDS8R, ATM_ADDS16R, ATM_INC8, ATM_P_INC8, //ARITHMETIC ATOMICS
+	ATM_XOR16, ATM_OR16, ATM_NOR16, ATM_AND16, ATM_NAND16, 											//BOOLEAN ATOMICS
+	ATM_CASGT8, ATM_CASLT8, ATM_CASGT16, ATM_CASLT16, ATM_CASEQ8, ATM_CASZERO16, ATM_EQ16, ATM_EQ8, //COMPARISON ATOMICS
+	ATM_BWR, ATM_P_BWR, ATM_BWR8R, ATM_SWAP16 														//BITWISE ATOMICS
 };
 
 class Transaction

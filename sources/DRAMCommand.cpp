@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -15,7 +15,7 @@ namespace CasHMC
 {
 	
 DRAMCommand::DRAMCommand(DRAMCommandType cmdtype, unsigned tag, unsigned bnk, unsigned col, unsigned rw, 
-							unsigned dSize, bool pst, TranTrace *lat, bool last):
+							unsigned dSize, bool pst, TranTrace *lat, bool last, PacketCommandType pktCMD, bool atm):
 	commandType(cmdtype),
 	packetTAG(tag),
 	bank(bnk),
@@ -24,8 +24,25 @@ DRAMCommand::DRAMCommand(DRAMCommandType cmdtype, unsigned tag, unsigned bnk, un
 	dataSize(dSize),
 	posted(pst),
 	trace(lat),
-	lastCMD(last)
+	lastCMD(last),
+	packetCMD(pktCMD),
+	atomic(atm)
 {
+}
+
+DRAMCommand::DRAMCommand(const DRAMCommand &dc)
+{
+	trace = dc.trace;
+	commandType = dc.commandType;
+	packetTAG = dc.packetTAG;
+	bank = dc.bank;
+	column = dc.column;
+	row = dc.row;
+	dataSize = dc.dataSize;
+	posted = dc.posted;
+	lastCMD = dc.lastCMD;
+	packetCMD = dc.packetCMD;
+	atomic = dc.atomic;
 }
 
 DRAMCommand::~DRAMCommand()
@@ -69,10 +86,16 @@ ostream& operator<<(ostream &out, const DRAMCommand &dc)
 		case WRITE_DATA:
 			header = "[C" + id.str() + "-W_DATA]";
 			break;
+		case POWERDOWN_ENTRY:
+			header = "[C" + id.str() + "-PD_ENT]";
+			break;
+		case POWERDOWN_EXIT:
+			header = "[C" + id.str() + "-PD_EXT]";
+			break;
 		default:
 			ERROR(" (DC) == Error - Trying to print unknown kind of bus packet");
 			ERROR("         Type : "<<dc.commandType);
-			exit(0);
+		//	exit(0);
 	}
 	out<<header;
 	return out;

@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -26,6 +26,8 @@ CommandQueue::CommandQueue(ofstream &debugOut_, ofstream &stateOut_, VaultContro
 	refreshWaiting = false;
 	issuedBank = 0;
 	
+	atomicLock = vector<bool>(NUM_BANKS,false);
+	atomicLockTag = vector<unsigned>(NUM_BANKS,0);
 	tFAWCountdown.reserve(4);
 	rowAccessCounter = vector<unsigned>(NUM_BANKS,0);
 	if(QUE_PER_BANK) {
@@ -48,8 +50,10 @@ CommandQueue::~CommandQueue()
 		ACCESSQUE(b).clear();
 		if(!QUE_PER_BANK)	break;
 	}
-	queue.clear();
+	atomicLock.clear();
+	atomicLockTag.clear();
 	bufPopDelayPerBank.clear();
+	queue.clear();
 	tFAWCountdown.clear();
 	rowAccessCounter.clear();
 }
@@ -59,6 +63,10 @@ CommandQueue::~CommandQueue()
 //
 bool CommandQueue::AvailableSpace(unsigned bank, unsigned cmdN)
 {
+	if(atomicLock[bank]) {
+		cmdN += 1;
+	}
+		
 	if(ACCESSQUE(bank).size()+cmdN <= MAX_CMD_QUE) {
 		return true;
 	}
@@ -111,47 +119,114 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 	//HMC command scheduling policy
 	//Close page
 	if(OPEN_PAGE == false) {
+		bool foundIssuable = false;
 		if(refreshWaiting) {
 			//Look into all bank
 			bool refreshPossible = true;
-			for(int b=0; b<NUM_BANKS; b++) {	//Need to check whether bank is open or not
-				if(BANKSTATE(b)->currentBankState == ROW_ACTIVE) {
+			for(int b=0; b<NUM_BANKS; b++) {
+				//Issuing writing-back atomic command
+				if(atomicLock[b]) {
+					if(POPCYCLE(issuedBank) == 0 && ACCESSQUE(b).size()>0 && ACCESSQUE(b)[0]->packetTAG == atomicLockTag[b]) {
+						if(isIssuable(ACCESSQUE(b)[0])) {
+							if(ACCESSQUE(b)[0]->commandType == WRITE || ACCESSQUE(b)[0]->commandType == WRITE_P) {
+								atomicLock[b] = false;
+								atomicLockTag[b] = 0;
+							}
+							*popedCMD = ACCESSQUE(b)[0];
+							ACCESSQUE(b).erase(ACCESSQUE(b).begin());
+							foundIssuable = true;
+						}
+					}
 					refreshPossible = false;
 					break;
 				}
-				//The next ACT and next REF can be issued at the same. nextActivate is considered as nextRefresh
-				else if(BANKSTATE(b)->nextActivate > currentClockCycle) {
-					refreshPossible = false;
-					break;
+				else {
+					//Need to check whether bank is open or not
+					if(BANKSTATE(b)->currentBankState == ROW_ACTIVE) {
+						refreshPossible = false;
+						
+						for(int i=0; i<ACCESSQUE(b).size(); i++) {
+							DRAMCommand *tempCMD = ACCESSQUE(b)[i];
+							//If a command in the queue is going to the same bank and row
+							if(b==tempCMD->bank && BANKSTATE(b)->openRowAddress==tempCMD->row) {
+								//and is not an activate
+								if(tempCMD->commandType != ACTIVATE) {
+									//and can be issued
+									if(isIssuable(tempCMD)) {
+										if(tempCMD->atomic
+										&& (tempCMD->packetCMD != EQ16 && tempCMD->packetCMD != EQ8)) {
+											atomicLock[tempCMD->bank] = true;
+											atomicLockTag[tempCMD->bank] = tempCMD->packetTAG;
+										}
+										*popedCMD = tempCMD;
+										ACCESSQUE(b).erase(ACCESSQUE(b).begin()+i);
+										foundIssuable = true;
+									}
+									break;
+								}
+								else {
+									break;
+								}
+							}
+						}
+						break;
+					}
+					//The next ACT and next REF can be issued at the same. nextActivate is considered as nextRefresh
+					else if(BANKSTATE(b)->nextActivate > currentClockCycle) {
+						refreshPossible = false;
+						break;
+					}
 				}
 			}
 			if(refreshPossible && BANKSTATE(0)->currentBankState!=POWERDOWN) {
-				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true);
+				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false);
+				foundIssuable = true;
 				refreshWaiting = false;
 			}
-			else {
-				return false;
-			}
+			if(!foundIssuable)	return false;
 		}
 		//Normal command scheduling
 		else {
-			bool foundIssuable = false;
 			int bankQueChk = 0;
 			
 			while(1) {
 				if(POPCYCLE(issuedBank) == 0) {
-					//Search from beginning to find first issuable command
-					for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
-						if(isIssuable(ACCESSQUE(issuedBank)[i])) {
-							//Check to make sure not removing a read/write that is paired with an activate
-							if(i>0 && ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
-								 &&	ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
-								continue;
-							
-							*popedCMD = ACCESSQUE(issuedBank)[i];
-							ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i);
-							foundIssuable = true;
-							break;
+					//Issuing writing-back atomic command
+					if(atomicLock[issuedBank]) {
+						if(ACCESSQUE(issuedBank).size() > 0 && ACCESSQUE(issuedBank)[0]->atomic) {
+							if(ACCESSQUE(issuedBank)[0]->packetTAG == atomicLockTag[issuedBank]) {
+								if(isIssuable(ACCESSQUE(issuedBank)[0])) {
+									if(ACCESSQUE(issuedBank)[0]->commandType == WRITE || ACCESSQUE(issuedBank)[0]->commandType == WRITE_P) {
+										atomicLock[issuedBank] = false;
+										atomicLockTag[issuedBank] = 0;
+									}
+									*popedCMD = ACCESSQUE(issuedBank)[0];
+									ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin());
+									foundIssuable = true;
+								}
+							}
+						}
+						break;
+					}
+					else {
+						//Search from beginning to find first issuable command
+						for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
+							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
+								//Check to make sure not removing a read/write that is paired with an activate
+								if(i>0 && ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
+								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
+									continue;
+								
+								if(ACCESSQUE(issuedBank)[i]->atomic
+								&& (ACCESSQUE(issuedBank)[i]->packetCMD != EQ16 && ACCESSQUE(issuedBank)[i]->packetCMD != EQ8)) {
+									atomicLock[ACCESSQUE(issuedBank)[i]->bank] = true;
+									atomicLockTag[ACCESSQUE(issuedBank)[i]->bank] = ACCESSQUE(issuedBank)[i]->packetTAG;
+								}
+								*popedCMD = ACCESSQUE(issuedBank)[i];
+								ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i);
+								foundIssuable = true;
+								break;
+							}
 						}
 					}
 				}
@@ -170,46 +245,71 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 		if(refreshWaiting) {
 			//Look into all bank
 			bool refreshPossible = true;
-			for(int b=0; b<NUM_BANKS; b++) {	//Need to check whether bank is open or not
-				if(BANKSTATE(b)->currentBankState == ROW_ACTIVE) {
-					refreshPossible = false;
-					bool closeRow = true;
-
-					for(int i=0; i<ACCESSQUE(b).size(); i++) {
-						DRAMCommand *tempCMD = ACCESSQUE(b)[i];
-						//If a command in the queue is going to the same bank and row
-						if(b==tempCMD->bank && BANKSTATE(b)->openRowAddress==tempCMD->row) {
-							//and is not an activate
-							if(tempCMD->commandType != ACTIVATE) {
-								closeRow = false;
-								//and can be issued
-								if(isIssuable(tempCMD)) {
-									*popedCMD = tempCMD;
-									ACCESSQUE(b).erase(ACCESSQUE(b).begin()+i);
-									sendingREForPRE = true;
-								}
-								break;
+			for(int b=0; b<NUM_BANKS; b++) {
+				//Issuing writing-back atomic command
+				if(atomicLock[b]) {
+					if(POPCYCLE(issuedBank) == 0 && ACCESSQUE(b).size()>0 && ACCESSQUE(b)[0]->packetTAG == atomicLockTag[b]) {
+						if(isIssuable(ACCESSQUE(b)[0])) {
+							if(ACCESSQUE(b)[0]->commandType == WRITE || ACCESSQUE(b)[0]->commandType == WRITE_P) {
+								atomicLock[b] = false;
+								atomicLockTag[b] = 0;
 							}
-							else {
-								break;
-							}
+							*popedCMD = ACCESSQUE(b)[0];
+							ACCESSQUE(b).erase(ACCESSQUE(b).begin());
+							sendingREForPRE = true;
 						}
 					}
-					if(closeRow && BANKSTATE(b)->nextPrecharge<=currentClockCycle) {
-						rowAccessCounter[b]=0;
-						*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true);
-						sendingREForPRE = true;
-					}
-					break;
-				}
-				//The next ACT and next REF can be issued at the same. nextActivate is considered as nextRefresh
-				else if(BANKSTATE(b)->nextActivate > currentClockCycle) {
 					refreshPossible = false;
 					break;
 				}
+				else {
+					//Need to check whether bank is open or not
+					if(BANKSTATE(b)->currentBankState == ROW_ACTIVE) {
+						refreshPossible = false;
+						bool closeRow = true;
+
+						for(int i=0; i<ACCESSQUE(b).size(); i++) {
+							DRAMCommand *tempCMD = ACCESSQUE(b)[i];
+							//If a command in the queue is going to the same bank and row
+							if(b==tempCMD->bank && BANKSTATE(b)->openRowAddress==tempCMD->row) {
+								//and is not an activate
+								if(tempCMD->commandType != ACTIVATE) {
+									closeRow = false;
+									//and can be issued
+									if(isIssuable(tempCMD)) {
+										if(tempCMD->atomic
+										&& (tempCMD->packetCMD != EQ16 && tempCMD->packetCMD != EQ8)) {
+											atomicLock[tempCMD->bank] = true;
+											atomicLockTag[tempCMD->bank] = tempCMD->packetTAG;
+										}
+										*popedCMD = tempCMD;
+										ACCESSQUE(b).erase(ACCESSQUE(b).begin()+i);
+										sendingREForPRE = true;
+									}
+									break;
+								}
+								else {
+									break;
+								}
+							}
+						}
+						if(closeRow && BANKSTATE(b)->nextPrecharge<=currentClockCycle) {
+							rowAccessCounter[b]=0;
+							*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false);
+							sendingREForPRE = true;
+						}
+						break;
+					}
+					//The next ACT and next REF can be issued at the same. nextActivate is considered as nextRefresh
+					else if(BANKSTATE(b)->nextActivate > currentClockCycle) {
+						refreshPossible = false;
+						break;
+					}
+				}
 			}
+			
 			if(refreshPossible && BANKSTATE(0)->currentBankState!=POWERDOWN) {
-				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true);
+				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false);
 				sendingREForPRE = true;
 				refreshWaiting = false;
 			}
@@ -221,35 +321,58 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 		
 			while(1) {
 				if(POPCYCLE(issuedBank) == 0) {
-					//Search from beginning to find first issuable command
-					for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
-						if(isIssuable(ACCESSQUE(issuedBank)[i])) {
-							//Check for dependencies
-							int j;
-							bool dependencyFound = false;
-							for(j=0; j<i; j++) {
-								DRAMCommand *prevCMD = ACCESSQUE(issuedBank)[j];
-								if(prevCMD->commandType != ACTIVATE &&
-								prevCMD->bank == ACCESSQUE(issuedBank)[i]->bank &&
-								prevCMD->row == ACCESSQUE(issuedBank)[i]->row) {
-									dependencyFound = true;
-									break;
+					//Issuing writing-back atomic command
+					if(atomicLock[issuedBank]) {
+						if(ACCESSQUE(issuedBank).size() > 0 && ACCESSQUE(issuedBank)[0]->atomic) {
+							if(ACCESSQUE(issuedBank)[0]->packetTAG == atomicLockTag[issuedBank]) {
+								if(isIssuable(ACCESSQUE(issuedBank)[0])) {
+									if(ACCESSQUE(issuedBank)[0]->commandType == WRITE || ACCESSQUE(issuedBank)[0]->commandType == WRITE_P) {
+										atomicLock[issuedBank] = false;
+										atomicLockTag[issuedBank] = 0;
+									}
+									*popedCMD = ACCESSQUE(issuedBank)[0];
+									ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin());
+									foundIssuable = true;
 								}
 							}
-							if(dependencyFound) continue;
-							*popedCMD = ACCESSQUE(issuedBank)[i];
-							//If the previous bus packet is an activate, that activate have to be removed
-							//(check i>0 because if i==0 then theres nothing before it)
-							if(i>0 && ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE) {
-								rowAccessCounter[(*popedCMD)->bank]++;
-								delete ACCESSQUE(issuedBank)[i-1];
-								ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i-1, ACCESSQUE(issuedBank).begin()+i+1);
+						}
+					}
+					else {
+						//Search from beginning to find first issuable command
+						for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
+							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
+								//Check for dependencies
+								int j;
+								bool dependencyFound = false;
+								for(j=0; j<i; j++) {
+									DRAMCommand *prevCMD = ACCESSQUE(issuedBank)[j];
+									if(prevCMD->commandType != ACTIVATE &&
+									prevCMD->bank == ACCESSQUE(issuedBank)[i]->bank &&
+									prevCMD->row == ACCESSQUE(issuedBank)[i]->row) {
+										dependencyFound = true;
+										break;
+									}
+								}
+								if(dependencyFound) continue;
+								if(ACCESSQUE(issuedBank)[i]->atomic
+								&& (ACCESSQUE(issuedBank)[i]->packetCMD != EQ16 && ACCESSQUE(issuedBank)[i]->packetCMD != EQ8)) {
+									atomicLock[issuedBank] = true;
+									atomicLockTag[issuedBank] = ACCESSQUE(issuedBank)[i]->packetTAG;
+								}
+								*popedCMD = ACCESSQUE(issuedBank)[i];
+								//If the previous bus packet is an activate, that activate have to be removed
+								//(check i>0 because if i==0 then theres nothing before it)
+								if(i>0 && ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE) {
+									rowAccessCounter[issuedBank]++;
+									delete ACCESSQUE(issuedBank)[i-1];
+									ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i-1, ACCESSQUE(issuedBank).begin()+i+1);
+								}
+								else{
+									ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i);
+								}
+								foundIssuable = true;
+								break;
 							}
-							else{
-								ACCESSQUE(issuedBank).erase(ACCESSQUE(issuedBank).begin()+i);
-							}
-							foundIssuable = true;
-							break;
 						}
 					}
 				}
@@ -267,21 +390,22 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 				for(int b=0; b<NUM_BANKS; b++) {
 					bool found = false;
 					if(BANKSTATE(b)->currentBankState == ROW_ACTIVE) {
-						for(int i=0; i<ACCESSQUE(b).size(); i++) {
-							//If there is something going to opened bank and row, don't send PRE command
-							if(ACCESSQUE(b)[i]->bank==b
-								&& ACCESSQUE(b)[i]->row == BANKSTATE(b)->openRowAddress) {
-								found = true;
-								break;
+						if(!atomicLock[b]) {
+							for(int i=0; i<ACCESSQUE(b).size(); i++) {
+								//If there is something going to opened bank and row, don't send PRE command
+								if(ACCESSQUE(b)[i]->bank==b && ACCESSQUE(b)[i]->row == BANKSTATE(b)->openRowAddress) {
+									found = true;
+									break;
+								}
 							}
-						}
-						//Too many accesses have happend, close it
-						if(!found || rowAccessCounter[b]>=MAX_ROW_ACCESSES) {
-							if(BANKSTATE(b)->nextPrecharge <= currentClockCycle) {
-								rowAccessCounter[b]=0;
-								*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true);
-								sendingPRE = true;
-								break;
+							//Too many accesses have happend, close it
+							if(!found || rowAccessCounter[b]>=MAX_ROW_ACCESSES) {
+								if(BANKSTATE(b)->nextPrecharge <= currentClockCycle) {
+									rowAccessCounter[b]=0;
+									*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false);
+									sendingPRE = true;
+									break;
+								}
 							}
 						}
 					}
@@ -330,13 +454,21 @@ bool CommandQueue::isIssuable(DRAMCommand *issueCMD)
 			if(BANKSTATE(issueCMD->bank)->currentBankState == ROW_ACTIVE 
 			&& BANKSTATE(issueCMD->bank)->nextWrite <= currentClockCycle
 			&& BANKSTATE(issueCMD->bank)->openRowAddress == issueCMD->row
-			&& rowAccessCounter[issueCMD->bank] < MAX_ROW_ACCESSES) {
+			&& !(!issueCMD->atomic && rowAccessCounter[issueCMD->bank] >= MAX_ROW_ACCESSES)) {
 				//Check the available buffer space of the vault controller with regard to read/write return data
-				if(vaultContP->pendingDataSize+(issueCMD->dataSize/16)+1 <= (vaultContP->upBufferMax)-(vaultContP->upBuffers.size())) {
+				if(issueCMD->atomic) {
 					return true;
 				}
-				else{
-					return false;
+				else if(issueCMD->posted == false) {
+					if(vaultContP->pendingDataSize+(issueCMD->dataSize/16)+1 <= (vaultContP->upBufferMax)-(vaultContP->upBuffers.size())) {
+						return true;
+					}
+					else{
+						return false;
+					}
+				}
+				else {
+					return true;
 				}
 			}
 			else {
@@ -371,7 +503,7 @@ bool CommandQueue::isIssuable(DRAMCommand *issueCMD)
 			}
 			break;
 		default:
-			ERROR(header<<"  == Error - Trying to issue a crazy bus packet type : "<<issueCMD<<"  (CurrentClock : "<<currentClockCycle<<")");
+			ERROR(header<<"  == Error - Trying to issue a unknown bus packet type : "<<*issueCMD<<"  (CurrentClock : "<<currentClockCycle<<")");
 			exit(0);
 	}
 	return false;
@@ -413,7 +545,12 @@ void CommandQueue::PrintState()
 			classID.str( string() );	classID.clear();
 			classID << b;
 			STATEN(ALI(17)<<(header + (QUE_PER_BANK ? ("-"+classID.str()+")") : (")"))));
-			STATEN(" Que ");
+			if(atomicLock[b]) {
+				STATEN(" QueL");
+			}
+			else {
+				STATEN(" Que ");
+			}
 			for(int i=0; i<MAX_CMD_QUE; i++) {
 				if(i>0 && i%8==0) {
 					STATEN(endl<<"                      ");

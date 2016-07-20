@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -83,7 +83,7 @@ CasHMCWrapper::CasHMCWrapper()
     t = *localtime(&now);
 	
 	cout<<endl<<"****************************************************************"<<endl;
-	cout<<"*                      CasHMC version 1.0                      *"<<endl;
+	cout<<"*                      CasHMC version 1.1                      *"<<endl;
 	cout<<"*            Date : "<<t.tm_year + 1900<<"/"<<setw(2)<<setfill('0')<<t.tm_mon+1<<"/"<<setw(2)<<setfill('0')<<t.tm_mday
 			<<"      Time : "<<setw(2)<<setfill('0')<<t.tm_hour<<":"<<setw(2)<<setfill('0')<<t.tm_min<<":"<<setw(2)<<setfill('0')<<t.tm_sec
 			<<"            *"<<endl;
@@ -447,7 +447,7 @@ void CasHMCWrapper::PrintEpochHeader()
 	//Simulation header generation
 	//
 	DE_ST("****************************************************************");
-	DE_ST("*                      CasHMC version 1.0                      *");
+	DE_ST("*                      CasHMC version 1.1                      *");
 	DEBUG("*                    simDebug log file ["<<logNum<<"]                     *");
 	STATE("*                      state log file ["<<logNum<<"]                      *");
 	DE_ST("*            Date : "<<t.tm_year + 1900<<"/"<<setw(2)<<setfill('0')<<t.tm_mon+1<<"/"<<setw(2)<<setfill('0')<<t.tm_mday
@@ -484,7 +484,7 @@ void CasHMCWrapper::PrintEpochHeader()
 void CasHMCWrapper::PrintSetting(struct tm t)
 {
 	settingOut<<"****************************************************************"<<endl;
-	settingOut<<"*                      CasHMC version 1.0                      *"<<endl;
+	settingOut<<"*                      CasHMC version 1.1                      *"<<endl;
 	settingOut<<"*                       setting log file                       *"<<endl;
 	settingOut<<"*            Date : "<<t.tm_year + 1900<<"/"<<setw(2)<<setfill('0')<<t.tm_mon+1<<"/"<<setw(2)<<setfill('0')<<t.tm_mday
 			<<"      Time : "<<setw(2)<<setfill('0')<<t.tm_hour<<":"<<setw(2)<<setfill('0')<<t.tm_min<<":"<<setw(2)<<setfill('0')<<t.tm_sec
@@ -604,16 +604,18 @@ void CasHMCWrapper::PrintEpochStatistic()
 	}
 	
 	//Count transaction and packet type
-	uint64_t epochReads;
-	uint64_t epochWrites;
-	uint64_t epochReq;
-	uint64_t epochRes;
-	uint64_t epochFlow;
-	unsigned epochError;
+	uint64_t epochReads = 0;
+	uint64_t epochWrites = 0;
+	uint64_t epochAtomics = 0;
+	uint64_t epochReq = 0;
+	uint64_t epochRes = 0;
+	uint64_t epochFlow = 0;
+	unsigned epochError = 0;
 	
 	for(int i=0; i<NUM_LINKS; i++) {
 		epochReads	+= readPerLink[i];
 		epochWrites	+= writePerLink[i];
+		epochAtomics+= atomicPerLink[i];
 		epochReq	+= reqPerLink[i];
 		epochRes	+= resPerLink[i];
 		epochFlow	+= flowPerLink[i];
@@ -685,11 +687,11 @@ void CasHMCWrapper::PrintEpochStatistic()
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkBandwidthSum;
+	double linkBandwidthSum = 0;
 	vector<double> downLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkEffecBandwidthSum;
+	double linkEffecBandwidthSum = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = downLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = upLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -733,6 +735,7 @@ void CasHMCWrapper::PrintEpochStatistic()
 
 	STATE("           Read count : "<<epochReads);
 	STATE("          Write count : "<<epochWrites);
+	STATE("         Atomic count : "<<epochAtomics);
 	STATE("        Request count : "<<epochReq);
 	STATE("       Response count : "<<epochRes);
 	STATE("           Flow count : "<<epochFlow);
@@ -744,6 +747,7 @@ void CasHMCWrapper::PrintEpochStatistic()
 		STATE("  ┌─────────────  [Link "<<i<<"]");
 		STATE("  │              Read per link : "<<readPerLink[i]);
 		STATE("  │             Write per link : "<<writePerLink[i]);
+		STATE("  │            Atomic per link : "<<atomicPerLink[i]);
 		STATE("  │           Request per link : "<<reqPerLink[i]);
 		STATE("  │          Response per link : "<<resPerLink[i]);
 		STATE("  │              Flow per link : "<<flowPerLink[i]);
@@ -785,6 +789,7 @@ void CasHMCWrapper::PrintEpochStatistic()
 	for(int i=0; i<NUM_LINKS; i++) {
 		totalReadPerLink[i] += readPerLink[i];		readPerLink[i] = 0;
 		totalWritePerLink[i] += writePerLink[i];	writePerLink[i] = 0;
+		totalAtomicPerLink[i] += atomicPerLink[i];	atomicPerLink[i] = 0;
 		totalReqPerLink[i] += reqPerLink[i];		reqPerLink[i] = 0;
 		totalResPerLink[i] += resPerLink[i];		resPerLink[i] = 0;
 		totalFlowPerLink[i] += flowPerLink[i];		flowPerLink[i] = 0;
@@ -833,11 +838,11 @@ void CasHMCWrapper::PrintFinalStatistic()
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkBandwidthSum;
+	double linkBandwidthSum = 0;
 	vector<double> downLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkEffecBandwidthSum;
+	double linkEffecBandwidthSum = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = totalDownLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = totalUpLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -859,15 +864,17 @@ void CasHMCWrapper::PrintFinalStatistic()
 	double vaultStdDev = sqrt(totalTranCount==0 ? 0 : totalVaultStdSum/totalTranCount);
 	double errorRetryDev = sqrt(totalErrorCount==0 ? 0 : totalErrorStdSum/totalErrorCount);
 	
-	uint64_t epochReads;
-	uint64_t epochWrites;
-	uint64_t epochReq;
-	uint64_t epochRes;
-	uint64_t epochFlow;
-	unsigned epochError;
+	uint64_t epochReads = 0;
+	uint64_t epochWrites = 0;
+	uint64_t epochAtomics = 0;
+	uint64_t epochReq = 0;
+	uint64_t epochRes = 0;
+	uint64_t epochFlow = 0;
+	unsigned epochError = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		epochReads	+= totalReadPerLink[i];
 		epochWrites	+= totalWritePerLink[i];
+		epochAtomics+= totalAtomicPerLink[i];
 		epochReq	+= totalReqPerLink[i];
 		epochRes	+= totalResPerLink[i];
 		epochFlow	+= totalFlowPerLink[i];
@@ -877,7 +884,7 @@ void CasHMCWrapper::PrintFinalStatistic()
 
 	//Print statistic result
 	resultOut<<"****************************************************************"<<endl;
-	resultOut<<"*                      CasHMC version 1.0                      *"<<endl;
+	resultOut<<"*                      CasHMC version 1.1                      *"<<endl;
 	resultOut<<"*                       result log file                        *"<<endl;
 	resultOut<<"*            Date : "<<t.tm_year + 1900<<"/"<<setw(2)<<setfill('0')<<t.tm_mon+1<<"/"<<setw(2)<<setfill('0')<<t.tm_mday
 			<<"      Time : "<<setw(2)<<setfill('0')<<t.tm_hour<<":"<<setw(2)<<setfill('0')<<t.tm_min<<":"<<setw(2)<<setfill('0')<<t.tm_sec
@@ -922,6 +929,7 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	resultOut<<"           Read count : "<<epochReads<<endl;
 	resultOut<<"          Write count : "<<epochWrites<<endl;
+	resultOut<<"         Atomic count : "<<epochAtomics<<endl;
 	resultOut<<"        Request count : "<<epochReq<<endl;
 	resultOut<<"       Response count : "<<epochRes<<endl;
 	resultOut<<"           Flow count : "<<epochFlow<<endl;
@@ -933,6 +941,7 @@ void CasHMCWrapper::PrintFinalStatistic()
 		resultOut<<"  ┌─────────────  [Link "<<i<<"]"<<endl;
 		resultOut<<"  │              Read per link : "<<totalReadPerLink[i]<<endl;
 		resultOut<<"  │             Write per link : "<<totalWritePerLink[i]<<endl;
+		resultOut<<"  │            Atomic per link : "<<totalAtomicPerLink[i]<<endl;
 		resultOut<<"  │           Request per link : "<<totalReqPerLink[i]<<endl;
 		resultOut<<"  │          Response per link : "<<totalResPerLink[i]<<endl;
 		resultOut<<"  │              Flow per link : "<<totalFlowPerLink[i]<<endl;

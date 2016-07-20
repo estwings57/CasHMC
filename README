@@ -1,5 +1,5 @@
 CasHMC: A Cycle-accurate Simulator for Hybrid Memory Cube
-version CasHMC v1.0 - 2016.05.07
+version CasHMC v1.1 - 2016.07.21
 
 1. Developer
 
@@ -25,13 +25,24 @@ version CasHMC v1.0 - 2016.05.07
   such as a processor simulator or a memory trace generator.
 
   
-3. Getting CasHMC
+3. CasHMC version info
 
-  BOBSim is available on github.
+  v1.0 (2016.05.07 released)
+   - Released the 1st CasHMC
+   - Modeling HMC architecture and packet-based interface
+   
+  v1.1 (2016.07.21 released)
+   - Support 'atomic commands' refered to HMC specification 2.1 (arithmetic, bitwise, boolean, comparison)
+     for more information, check Transaction.h (TransactionType) or RunSim.cpp (line 86)
+
+  
+4. Getting CasHMC
+
+  CasHMC is available on github.
   https://github.com/estwings57/CasHMC
   
   
-4. Folder directory
+5. Folder directory
   
   graph : Gnuplot script file and a graph data file after a simulation run is over
   result : Log files after a simulation run is over
@@ -39,14 +50,14 @@ version CasHMC v1.0 - 2016.05.07
   trace : The example of trace files (The files are extracted from SPEC CPU2006 benchmarks)
   
   
-5. Building CasHMC
+6. Building CasHMC
   
   To build an optimized CasHMC
   
   $ make
   
   
-6. Running CasHMC
+7. Running CasHMC
   
   > Command line arguments
   

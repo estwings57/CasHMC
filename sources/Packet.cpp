@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -15,8 +15,8 @@ using namespace std;
 
 namespace CasHMC
 {
-
-Packet::Packet(PacketType packet, CommandType cmd, uint64_t addr, unsigned cub, unsigned lng, TranTrace *lat):		//Request packet
+//Request packet
+Packet::Packet(PacketType packet, PacketCommandType cmd, uint64_t addr, unsigned cub, unsigned lng, TranTrace *lat):
 	packetType(packet),
 	CMD(cmd),
 	ADRS(addr),
@@ -43,9 +43,7 @@ Packet::Packet(PacketType packet, CommandType cmd, uint64_t addr, unsigned cub, 
 	ADRS = (ADRS<<30)>>30;	//Address length is 34 bits
 	
 	if(CRC_CHECK) {
-		if(WR16 <= cmd || cmd <= MD_WR || cmd == WR256
-		|| P_WR16 <= cmd || cmd <= P_WR128 || cmd == P_WR256) {
-			//( packetLength - 1 [header + tail] ) * 16 [Packet 16-byte]
+		if(LNG>1) {
 			DATA = new uint64_t[(LNG-1)*2];
 			uint64_t tempData;
 			for(int i=0; i<(LNG-1)*2; i++) {
@@ -63,8 +61,8 @@ Packet::Packet(PacketType packet, CommandType cmd, uint64_t addr, unsigned cub, 
 		DATA = NULL;
 	}
 }
-
-Packet::Packet(PacketType packet, CommandType cmd, unsigned tag, unsigned lng, TranTrace *lat):		//Response packet
+//Response packet
+Packet::Packet(PacketType packet, PacketCommandType cmd, unsigned tag, unsigned lng, TranTrace *lat):
 	packetType(packet),
 	CMD(cmd),
 	TAG(tag),
@@ -76,20 +74,12 @@ Packet::Packet(PacketType packet, CommandType cmd, unsigned tag, unsigned lng, T
 	CUB=0; Pb=0;
 	CRC=0; RTC=0; SLID=0;
 	SEQ=0; FRP=0; RRP=0;
-	ERRSTAT=0; DINV=0;
+	AF=0; ERRSTAT=0; DINV=0;
 	chkCRC = false;
 	chkRRP = false;
-
-	if(_2ADDS8R<=CMD<=ADDS16R || CMD==INC8 || XOR16<=CMD<=NAND16 || CASGT8<=CMD<=CASZERO16 || EQ16<=CMD<=EQ8 || CMD==BWR8R) {
-		AF = 1;
-	}
-	else {
-		AF = 0;
-	}
 	
 	if(CRC_CHECK) {
-		if(cmd == RD_RS) {
-			//( packetLength - 1 [header + tail] ) * 16 [Packet 16-byte]
+		if(LNG>1) {
 			DATA = new uint64_t[(LNG-1)*2];
 			uint64_t tempData;
 			for(int i=0; i<(LNG-1)*2; i++) {
@@ -119,7 +109,7 @@ Packet::Packet(const Packet &f)
 {
 	trace = f.trace;
 	packetType = f.packetType;
-	bufPopDelay=f.bufPopDelay;
+	bufPopDelay = f.bufPopDelay;
 	chkCRC = f.chkCRC;
 	chkRRP = f.chkRRP;
 	
@@ -279,7 +269,7 @@ ostream& operator<<(ostream &out, const Packet &f)
 		case RD80:	header = "[F" + id.str() + "-RD80]";	break;		case RD96:	header = "[F" + id.str() + "-RD96]";	break;
 		case RD112:	header = "[F" + id.str() + "-RD112]";	break;		case RD128:	header = "[F" + id.str() + "-RD128]";	break;
 		case RD256:	header = "[F" + id.str() + "-RD256]";	break;		case MD_RD:	header = "[F" + id.str() + "-MD_RD]";	break;
-		//ATOMICS commands to be implemented in next version
+		//ATOMICS commands
 		case _2ADD8:	header = "[F" + id.str() + "-2ADD8]";	break;		case ADD16:		header = "[F" + id.str() + "-ADD16]";	break;
 		case P_2ADD8:	header = "[F" + id.str() + "-P_2ADD8]";	break;		case P_ADD16:	header = "[F" + id.str() + "-P_ADD16]";	break;
 		case _2ADDS8R:	header = "[F" + id.str() + "-2ADDS8R]";	break;		case ADDS16R:	header = "[F" + id.str() + "-ADDS16R]";	break;

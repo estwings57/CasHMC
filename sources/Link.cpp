@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -108,12 +108,15 @@ void Link::UpdateStatistic(Packet *packet)
 			statis->reqPerLink[linkID]++;
 			packet->trace->linkTransmitTime = linkMasterP->currentClockCycle;
 
-			if((WR16 <= packet->CMD && packet->CMD <= MD_WR) || packet->CMD == WR256 ||
-				(P_WR16 <= packet->CMD && packet->CMD <= P_WR128) || packet->CMD == P_WR256) {
+			if((WR16 <= packet->CMD && packet->CMD <= MD_WR) || packet->CMD == WR256
+			|| (P_WR16 <= packet->CMD && packet->CMD <= P_WR128) || packet->CMD == P_WR256) {
 				statis->writePerLink[linkID]++;
 			}
 			else if((RD16 <= packet->CMD && packet->CMD <= RD128) || packet->CMD == RD256 || packet->CMD == MD_RD) {
 				statis->readPerLink[linkID]++;
+			}
+			else {
+				statis->atomicPerLink[linkID]++;
 			}
 			break;
 		case RESPONSE:
@@ -137,7 +140,7 @@ void Link::NoisePacket(Packet *packet)
 	for(int i=0; i<packet->LNG; i++) {
 		unsigned ranNum1 = rand();
 		unsigned ranNum2 = rand();	
-		if(ranNum1%errorProba == 0 && ranNum2%errorProba == 0 ) {
+		if(ranNum1%errorProba == 0 && ranNum2%errorProba == 0) {
 			DE_CR(ALI(18)<<header<<ALI(15)<<*packet<<(downstream ? "Down) " : "Up)   ")<<"====> Link ERROR is occurred <====");
 			packet->CRC = ~packet->CRC;
 			break;
@@ -153,7 +156,8 @@ void Link::PrintState()
 	if(inFlightPacket != NULL) {
 		STATEN(ALI(17)<<header);
 		STATEN((downstream ? "Down " : " Up  "));
-		STATE(*inFlightPacket);
+		STATEN(*inFlightPacket);
+		STATE("*"<<inFlightPacket->LNG);
 	}
 }
 

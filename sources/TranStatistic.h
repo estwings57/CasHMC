@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -32,6 +32,7 @@ public:
 	TranStatistic() {
 		readPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		writePerLink = vector<uint64_t>(NUM_LINKS, 0);
+		atomicPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		reqPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		resPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		flowPerLink = vector<uint64_t>(NUM_LINKS, 0);
@@ -50,6 +51,7 @@ public:
 		
 		totalReadPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		totalWritePerLink = vector<uint64_t>(NUM_LINKS, 0);
+		totalAtomicPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		totalReqPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		totalResPerLink = vector<uint64_t>(NUM_LINKS, 0);
 		totalFlowPerLink = vector<uint64_t>(NUM_LINKS, 0);
@@ -91,6 +93,7 @@ public:
 	
 	vector<uint64_t> readPerLink;
 	vector<uint64_t> writePerLink;
+	vector<uint64_t> atomicPerLink;
 	vector<uint64_t> reqPerLink;
 	vector<uint64_t> resPerLink;
 	vector<uint64_t> flowPerLink;
@@ -118,6 +121,7 @@ public:
 	
 	vector<uint64_t> totalReadPerLink;
 	vector<uint64_t> totalWritePerLink;
+	vector<uint64_t> totalAtomicPerLink;
 	vector<uint64_t> totalReqPerLink;
 	vector<uint64_t> totalResPerLink;
 	vector<uint64_t> totalFlowPerLink;
@@ -147,4 +151,3 @@ public:
 }
 
 #endif
-

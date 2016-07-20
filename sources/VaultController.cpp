@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -24,6 +24,7 @@ VaultController::VaultController(ofstream &debugOut_, ofstream &stateOut_, unsig
 	refreshCountdown = 0;
 	powerDown = false;
 	poppedCMD = NULL;
+	atomicCMD = NULL;
 	pendingDataSize = 0;
 	
 	cmdBus = NULL;
@@ -61,8 +62,8 @@ void VaultController::CallbackReceiveUp(Packet *upEle, bool chkReceive)
 {
 	if(chkReceive) {
 		switch(upEle->CMD) {
-			case RD_RS:	DE_CR(ALI(18)<<dramP->header<<ALI(15)<<*upEle<<"Up)   RETURNING read data response packet");	break;
-			case WR_RS:	DE_CR(ALI(18)<<dramP->header<<ALI(15)<<*upEle<<"Up)   RETURNING write response packet");		break;
+			case RD_RS:	DE_CR(ALI(18)<<header<<ALI(15)<<*upEle<<"Up)   RETURNING read data response packet");	break;
+			case WR_RS:	DE_CR(ALI(18)<<header<<ALI(15)<<*upEle<<"Up)   RETURNING write response packet");		break;
 			default:
 				ERROR(header<<"  == Error - WRONG response packet command type  "<<*upEle<<"  (CurrentClock : "<<currentClockCycle<<")");
 				exit(0);
@@ -91,9 +92,18 @@ void VaultController::ReturnCommand(DRAMCommand *retCMD)
 	for(int i=0; i<pendingReadData.size(); i++) {
 		if(retCMD->packetTAG == pendingReadData[i]) {
 			if(retCMD->lastCMD == true) {
-				MakeRespondPacket(retCMD);
+				if(retCMD->atomic) {
+					atomicCMD = retCMD;
+					DE_CR(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   RETURNING ATOMIC read data");
+				}
+				else {
+					MakeRespondPacket(retCMD);
+					delete retCMD;
+				}
 			}
-			delete retCMD;
+			else {
+				delete retCMD;
+			}
 			pendingReadData.erase(pendingReadData.begin()+i);
 			foundMatch = true;
 			break;
@@ -112,21 +122,34 @@ void VaultController::MakeRespondPacket(DRAMCommand *retCMD)
 {
 	retCMD->trace->vaultFullLat = currentClockCycle - retCMD->trace->vaultIssueTime;
 	Packet *newPacket;
-	if(retCMD->commandType == WRITE_DATA) {
-		//packet, cmd, tag, lng, *lat
-		newPacket = new Packet(RESPONSE, WR_RS, retCMD->packetTAG, 1, retCMD->trace);
-		pendingDataSize -= 1;
-		//DEBUG(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   pendingDataSize 1 decreased   (current pendingDataSize : "<<pendingDataSize<<")");
-	}
-	else if(retCMD->commandType == READ_DATA) {
-		//packet, cmd, tag, lng, *lat
-		newPacket = new Packet(RESPONSE, RD_RS, retCMD->packetTAG, (retCMD->dataSize/16)+1, retCMD->trace);
-		pendingDataSize -= (retCMD->dataSize/16)+1;
-		//DEBUG(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   pendingDataSize "<<(retCMD->dataSize/16)+1<<" decreased   (current pendingDataSize : "<<pendingDataSize<<")");
+	if(retCMD->atomic) {
+		if(retCMD->packetCMD == _2ADD8 || retCMD->packetCMD == ADD16 || retCMD->packetCMD == INC8
+		|| retCMD->packetCMD == EQ8 || retCMD->packetCMD == EQ16 || retCMD->packetCMD == BWR) {
+			newPacket = new Packet(RESPONSE, WR_RS, retCMD->packetTAG, 1, retCMD->trace);
+			pendingDataSize -= 1;
+		}
+		else {
+			newPacket = new Packet(RESPONSE, RD_RS, retCMD->packetTAG, 2, retCMD->trace);
+			pendingDataSize -= 2;
+		}
 	}
 	else {
-		ERROR(header<<"  == Error - Unknown response packet command  cmd : "<<retCMD->commandType<<"  (CurrentClock : "<<currentClockCycle<<")");
-		exit(0);
+		if(retCMD->commandType == WRITE_DATA) {
+			//packet, cmd, tag, lng, *lat
+			newPacket = new Packet(RESPONSE, WR_RS, retCMD->packetTAG, 1, retCMD->trace);
+			pendingDataSize -= 1;
+			//DEBUG(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   pendingDataSize 1 decreased   (current pendingDataSize : "<<pendingDataSize<<")");
+		}
+		else if(retCMD->commandType == READ_DATA) {
+			//packet, cmd, tag, lng, *lat
+			newPacket = new Packet(RESPONSE, RD_RS, retCMD->packetTAG, (retCMD->dataSize/16)+1, retCMD->trace);
+			pendingDataSize -= (retCMD->dataSize/16)+1;
+			//DEBUG(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   pendingDataSize "<<(retCMD->dataSize/16)+1<<" decreased   (current pendingDataSize : "<<pendingDataSize<<")");
+		}
+		else {
+			ERROR(header<<"  == Error - Unknown response packet command  cmd : "<<retCMD->commandType<<"  (CurrentClock : "<<currentClockCycle<<")");
+			exit(0);
+		}
 	}
 	ReceiveUp(newPacket);
 }
@@ -175,19 +198,35 @@ void VaultController::Update()
 	if(commandQueue->CmdPop(&poppedCMD)) {
 		//Write data command will be issued after countdown
 		if(poppedCMD->commandType == WRITE || poppedCMD->commandType == WRITE_P) {
-			writeDataToSend.push_back(new DRAMCommand(WRITE_DATA, poppedCMD->packetTAG, poppedCMD->bank, poppedCMD->column, 
-														poppedCMD->row, poppedCMD->dataSize, poppedCMD->posted, poppedCMD->trace, poppedCMD->lastCMD));
+			DRAMCommand *writeData = new DRAMCommand(*poppedCMD);
+			writeData->commandType = WRITE_DATA;
+			writeDataToSend.push_back(writeData);
 			writeDataCountdown.push_back(WL);
 		}
 		
 		if(poppedCMD->lastCMD == true) {
-			if(poppedCMD->commandType == WRITE || poppedCMD->commandType == WRITE_P) {
-				pendingDataSize += 1;
-				//DEBUG(ALI(18)<<header<<ALI(15)<<*poppedCMD<<"Down) pendingDataSize 1 increased   (current pendingDataSize : "<<pendingDataSize<<")");
-			}
-			else if(poppedCMD->commandType == READ || poppedCMD->commandType == READ_P) {
-				pendingDataSize += (poppedCMD->dataSize/16)+1;
-				//DEBUG(ALI(18)<<header<<ALI(15)<<*poppedCMD<<"Down) pendingDataSize "<<(poppedCMD->dataSize/16)+1<<" increased   (current pendingDataSize : "<<pendingDataSize<<")");
+			if(!poppedCMD->posted) {
+				if(poppedCMD->commandType == WRITE || poppedCMD->commandType == WRITE_P) {
+					if(!poppedCMD->atomic) {
+						pendingDataSize += 1;
+						//DEBUG(ALI(18)<<header<<ALI(15)<<*poppedCMD<<"Down) pendingDataSize 1 increased   (current pendingDataSize : "<<pendingDataSize<<")");
+					}
+				}
+				else if(poppedCMD->commandType == READ || poppedCMD->commandType == READ_P) {
+					if(!poppedCMD->atomic) {
+						pendingDataSize += (poppedCMD->dataSize/16)+1;
+						//DEBUG(ALI(18)<<header<<ALI(15)<<*poppedCMD<<"Down) pendingDataSize "<<(poppedCMD->dataSize/16)+1<<" increased   (current pendingDataSize : "<<pendingDataSize<<")");
+					}
+					else {
+						if(poppedCMD->packetCMD == _2ADD8 || poppedCMD->packetCMD == ADD16 || poppedCMD->packetCMD == INC8
+						|| poppedCMD->packetCMD == EQ8 || poppedCMD->packetCMD == EQ16 || poppedCMD->packetCMD == BWR) {
+							pendingDataSize += 1;
+						}
+						else {
+							pendingDataSize += 2;
+						}
+					}
+				}
 			}
 		}
 		
@@ -199,6 +238,36 @@ void VaultController::Update()
 		cmdBus = poppedCMD;
 		cmdCyclesLeft = tCMD;
 		poppedCMD = NULL;
+	}
+	
+	//Atomic command operation (assume that all operations consume one clock cycle)
+	if(atomicCMD != NULL) {
+		//The results are written back to DRAM, overwriting the original memory operands
+		if(atomicCMD->packetCMD != EQ16 && atomicCMD->packetCMD != EQ8) {
+			DRAMCommand *atmRstCMD = new DRAMCommand(*atomicCMD);
+			atmRstCMD->commandType = (OPEN_PAGE ? WRITE : WRITE_P);
+			atmRstCMD->dataSize = 16;
+			atmRstCMD->lastCMD = true;
+			if(!atmRstCMD->posted) {
+				atmRstCMD->trace = NULL;
+			}
+			if(QUE_PER_BANK) {
+				commandQueue->queue[atomicCMD->bank].insert(commandQueue->queue[atomicCMD->bank].begin(), atmRstCMD);
+				classID.str( string() );	classID.clear();
+				classID << atomicCMD->bank;
+				DE_CR(ALI(18)<<(commandQueue->header+"-"+classID.str()+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
+			}
+			else {
+				commandQueue->queue[0].insert(commandQueue->queue[0].begin(), atmRstCMD);
+				DE_CR(ALI(18)<<(commandQueue->header+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
+			}
+		}
+		
+		if(!atomicCMD->posted) {
+			MakeRespondPacket(atomicCMD);
+		}
+		delete atomicCMD;
+		atomicCMD = NULL;
 	}
 
 	//Power-down mode setting
@@ -230,11 +299,11 @@ void VaultController::UpdateCountdown()
 		dataCyclesLeft--;
 		if(dataCyclesLeft == 0) {
 			DE_CR(ALI(18)<<header<<ALI(15)<<*dataBus<<"Down) ISSUING data corresponding to previous write command");
-			if(dataBus->lastCMD == true) {
-				if(dataBus->posted == false) {
+			if(dataBus->lastCMD) {
+				if(!dataBus->atomic && !dataBus->posted) {
 					MakeRespondPacket(dataBus);
 				}
-				else {
+				else if(dataBus->trace != NULL && dataBus->posted) {
 					dataBus->trace->tranFullLat = ceil(currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->tranTransmitTime;
 					dataBus->trace->linkFullLat = ceil(currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->linkTransmitTime;
 					dataBus->trace->vaultFullLat = currentClockCycle - dataBus->trace->vaultIssueTime;
@@ -287,6 +356,7 @@ bool VaultController::ConvPacketIntoCMDs(Packet *packet)
 	DRAMCommandType tempCMD;
 	unsigned tempSize;		//one unit - 64 bits
 	bool tempPosted = false;
+	bool atomic = false;
 	switch(packet->CMD) {
 		//Write
 		case WR16:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 16;	break;
@@ -320,24 +390,62 @@ bool VaultController::ConvPacketIntoCMDs(Packet *packet)
 		case RD128:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 128;	pendingReadData.push_back(packet->TAG);	break;
 		case RD256:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 256;	pendingReadData.push_back(packet->TAG);	break;
 		case MD_RD:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		//Arithmetic atomic
+		case _2ADD8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case ADD16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case P_2ADD8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case P_ADD16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case _2ADDS8R:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case ADDS16R:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case INC8:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case P_INC8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		//Boolean atomic
+		case XOR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case OR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case NOR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case AND16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case NAND16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		//Comparison atomic
+		case CASGT8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASLT8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASGT16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASLT16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASEQ8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASZERO16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case EQ16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case EQ8:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		//Bitwise atomic
+		case BWR:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case P_BWR:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break; 
+		case BWR8R:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break; 
+		case SWAP16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;											
+		
 		default:
 			ERROR(header<<"  == Error - WRONG packet command type  (CurrentClock : "<<currentClockCycle<<")");
 			exit(0);
 	}
-		
+	
 	if(commandQueue->AvailableSpace(bankAdd, ceil((double)tempSize/ADDRESS_MAPPING)+1)) {
 		DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<"Down) phyAdd : 0x"<<hex<<setw(9)<<setfill('0')<<packet->ADRS<<dec<<"  bankAdd : "<<bankAdd<<"  colAdd : "<<colAdd<<"  rowAdd : "<<rowAdd);
 		//cmdtype, tag, bnk, col, rw, *dt, dSize, pst, *lat
-		DRAMCommand *actCMD = new DRAMCommand(ACTIVATE, packet->TAG, bankAdd, colAdd, rowAdd, 0, false, packet->trace, true);
+		DRAMCommand *actCMD = new DRAMCommand(ACTIVATE, packet->TAG, bankAdd, colAdd, rowAdd, 0, false, packet->trace, true, packet->CMD, atomic);
 		commandQueue->Enqueue(bankAdd, actCMD);
 		
 		for(int i=0; i<ceil((double)tempSize/ADDRESS_MAPPING); i++) {
 			DRAMCommand *rwCMD;
 			if(i < ceil((double)tempSize/ADDRESS_MAPPING)-1) {
-				rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false);
+				if(tempCMD == WRITE_P) {
+					rwCMD = new DRAMCommand(WRITE, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+				}
+				else if(tempCMD == READ_P) {
+					rwCMD = new DRAMCommand(READ, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+				}
+				else {
+					rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+				}
 			}
 			else {
-				rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, true);
+				rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, true, packet->CMD, atomic);
 			}
 			commandQueue->Enqueue(bankAdd, rwCMD);
 			if(tempCMD == READ || tempCMD == READ_P) {

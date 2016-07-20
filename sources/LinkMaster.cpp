@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.0 - 2016.05.07
+*  CasHMC v1.1 - 2016.07.21
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -373,7 +373,6 @@ void LinkMaster::Update()
 void LinkMaster::CRCCountdown(int writeP, Packet *packet)
 {
 	if(CRC_CHECK && !startCRC) {
-		packet->bufPopDelay = 1;
 		startCRC = true;
 		countdownCRC = ceil(CRC_CAL_CYCLE * packet->LNG);
 	}
@@ -425,6 +424,7 @@ void LinkMaster::UpdateField(int nextWriteP, Packet *packet)
 			<<"RETRY BUFFER["<<retBufWriteP<<"] (FRP : "<<packet->FRP<<")");
 	retBufWriteP = packet->FRP;
 	//Send packet to standby buffer where the packet is ready to be transmitted
+	packet->bufPopDelay = 1;
 	linkRxTx.push_back(packet);
 	//DEBUG(ALI(18)<<header<<ALI(15)<<*Buffers[0]<<(downstream ? "Down) " : "Up)   ")
 	//			<<"SENDING packet to link "<<linkMasterID<<" (LK_"<<(downstream ? "D" : "U")<<linkMasterID<<")");
