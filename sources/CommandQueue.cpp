@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -179,7 +179,7 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 				}
 			}
 			if(refreshPossible && BANKSTATE(0)->currentBankState!=POWERDOWN) {
-				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false);
+				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false, false);
 				foundIssuable = true;
 				refreshWaiting = false;
 			}
@@ -295,7 +295,7 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 						}
 						if(closeRow && BANKSTATE(b)->nextPrecharge<=currentClockCycle) {
 							rowAccessCounter[b]=0;
-							*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false);
+							*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false, false);
 							sendingREForPRE = true;
 						}
 						break;
@@ -309,7 +309,7 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 			}
 			
 			if(refreshPossible && BANKSTATE(0)->currentBankState!=POWERDOWN) {
-				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false);
+				*popedCMD = new DRAMCommand(REFRESH, 0, 0, 0, 0, 0, false, NULL, true, NULL_, false, false);
 				sendingREForPRE = true;
 				refreshWaiting = false;
 			}
@@ -402,7 +402,7 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 							if(!found || rowAccessCounter[b]>=MAX_ROW_ACCESSES) {
 								if(BANKSTATE(b)->nextPrecharge <= currentClockCycle) {
 									rowAccessCounter[b]=0;
-									*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false);
+									*popedCMD = new DRAMCommand(PRECHARGE, 0, b, 0, 0, 0, false, NULL, true, NULL_, false, false);
 									sendingPRE = true;
 									break;
 								}

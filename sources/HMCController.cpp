@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -83,7 +83,7 @@ void HMCController::Update()
 					unsigned maxBlockBit = _log2(ADDRESS_MAPPING);
 					if((downLinkMasters[l]->Buffers[i]->ADRS >> maxBlockBit) == (downBuffers[0]->address >> maxBlockBit)) {
 						link = l;
-						DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) This packet has a DEPENDENCY with "<<*downLinkMasters[l]->Buffers[i]);
+						DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) This transaction has a DEPENDENCY with "<<*downLinkMasters[l]->Buffers[i]);
 						break;
 					}
 				}
@@ -156,11 +156,13 @@ void HMCController::Update()
 Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 {
 	unsigned packetLength;
+	unsigned reqDataSize=16;
 	PacketCommandType cmdtype;
 	
 	switch(tran->transactionType) {
 		case DATA_READ:
 			packetLength = 1; //header + tail
+			reqDataSize = tran->dataSize;
 			switch(tran->dataSize) {
 				case 16:	cmdtype = RD16;		break;
 				case 32:	cmdtype = RD32;		break;
@@ -176,8 +178,9 @@ Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 					exit(0);
 			}
 			break;
-		case DATA_WRITE:	
+		case DATA_WRITE:		
 			packetLength = tran->dataSize /*[byte] Size of data*/ / 16 /*packet 16-byte*/ + 1 /*header + tail*/;
+			reqDataSize = tran->dataSize;
 			switch(tran->dataSize) {
 				case 16:	cmdtype = WR16;		break;
 				case 32:	cmdtype = WR32;		break;
@@ -204,24 +207,24 @@ Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 		case ATM_P_INC8:	cmdtype = P_INC8;	packetLength = 1;	break;
 		//Boolean atomic
 		case ATM_XOR16:		cmdtype = XOR16;	packetLength = 2;	break;
-		case ATM_OR16:		cmdtype = OR16;		packetLength = 2;	break; 
-		case ATM_NOR16:		cmdtype = NOR16;	packetLength = 2;	break; 
-		case ATM_AND16:		cmdtype = AND16;	packetLength = 2;	break;	
-		case ATM_NAND16:	cmdtype = NAND16;	packetLength = 2;	break;	
+		case ATM_OR16:		cmdtype = OR16;		packetLength = 2;	break;
+		case ATM_NOR16:		cmdtype = NOR16;	packetLength = 2;	break;
+		case ATM_AND16:		cmdtype = AND16;	packetLength = 2;	break;
+		case ATM_NAND16:	cmdtype = NAND16;	packetLength = 2;	break;
 		//Comparison atomic
 		case ATM_CASGT8:	cmdtype = CASGT8;	packetLength = 2;	break;
-		case ATM_CASLT8:	cmdtype = CASLT8;	packetLength = 2;	break; 
-		case ATM_CASGT16:	cmdtype = CASGT16;	packetLength = 2;	break; 
-		case ATM_CASLT16:	cmdtype = CASLT16;	packetLength = 2;	break;											
-		case ATM_CASEQ8:	cmdtype = CASEQ8;	packetLength = 2;	break;											
-		case ATM_CASZERO16:	cmdtype = CASZERO16;packetLength = 2;	break;											
-		case ATM_EQ16:		cmdtype = EQ16;		packetLength = 2;	break;											
-		case ATM_EQ8:		cmdtype = EQ8;		packetLength = 2;	break;											
+		case ATM_CASLT8:	cmdtype = CASLT8;	packetLength = 2;	break;
+		case ATM_CASGT16:	cmdtype = CASGT16;	packetLength = 2;	break;
+		case ATM_CASLT16:	cmdtype = CASLT16;	packetLength = 2;	break;
+		case ATM_CASEQ8:	cmdtype = CASEQ8;	packetLength = 2;	break;
+		case ATM_CASZERO16:	cmdtype = CASZERO16;packetLength = 2;	break;
+		case ATM_EQ16:		cmdtype = EQ16;		packetLength = 2;	break;
+		case ATM_EQ8:		cmdtype = EQ8;		packetLength = 2;	break;
 		//Bitwise atomic
 		case ATM_BWR:		cmdtype = BWR;		packetLength = 2;	break;
-		case ATM_P_BWR:		cmdtype = P_BWR;	packetLength = 2;	break; 
-		case ATM_BWR8R:		cmdtype = BWR8R;	packetLength = 2;	break; 
-		case ATM_SWAP16:	cmdtype = SWAP16;	packetLength = 2;	break;	
+		case ATM_P_BWR:		cmdtype = P_BWR;	packetLength = 2;	break;
+		case ATM_BWR8R:		cmdtype = BWR8R;	packetLength = 2;	break;
+		case ATM_SWAP16:	cmdtype = SWAP16;	packetLength = 2;	break;
 			
 		default:
 			ERROR(header<<"   == Error - WRONG transaction type  (CurrentClock : "<<currentClockCycle<<")");
@@ -231,6 +234,7 @@ Packet *HMCController::ConvTranIntoPacket(Transaction *tran)
 	}
 	//packet, cmd, addr, cub, lng, *lat
 	Packet *newPacket = new Packet(REQUEST, cmdtype, tran->address, 0, packetLength, tran->trace);
+	newPacket->reqDataSize = reqDataSize;
 	return newPacket;
 }
 

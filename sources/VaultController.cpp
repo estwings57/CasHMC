@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -25,6 +25,7 @@ VaultController::VaultController(ofstream &debugOut_, ofstream &stateOut_, unsig
 	powerDown = false;
 	poppedCMD = NULL;
 	atomicCMD = NULL;
+	atomicOperLeft = 0;
 	pendingDataSize = 0;
 	
 	cmdBus = NULL;
@@ -94,6 +95,7 @@ void VaultController::ReturnCommand(DRAMCommand *retCMD)
 			if(retCMD->lastCMD == true) {
 				if(retCMD->atomic) {
 					atomicCMD = retCMD;
+					atomicOperLeft = 1;
 					DE_CR(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   RETURNING ATOMIC read data");
 				}
 				else {
@@ -120,7 +122,9 @@ void VaultController::ReturnCommand(DRAMCommand *retCMD)
 //
 void VaultController::MakeRespondPacket(DRAMCommand *retCMD)
 {
-	retCMD->trace->vaultFullLat = currentClockCycle - retCMD->trace->vaultIssueTime;
+	if(retCMD->trace != NULL) {
+		retCMD->trace->vaultFullLat = currentClockCycle - retCMD->trace->vaultIssueTime;
+	}
 	Packet *newPacket;
 	if(retCMD->atomic) {
 		if(retCMD->packetCMD == _2ADD8 || retCMD->packetCMD == ADD16 || retCMD->packetCMD == INC8
@@ -151,6 +155,7 @@ void VaultController::MakeRespondPacket(DRAMCommand *retCMD)
 			exit(0);
 		}
 	}
+	newPacket->segment = retCMD->segment;
 	ReceiveUp(newPacket);
 }
 
@@ -242,32 +247,38 @@ void VaultController::Update()
 	
 	//Atomic command operation (assume that all operations consume one clock cycle)
 	if(atomicCMD != NULL) {
-		//The results are written back to DRAM, overwriting the original memory operands
-		if(atomicCMD->packetCMD != EQ16 && atomicCMD->packetCMD != EQ8) {
-			DRAMCommand *atmRstCMD = new DRAMCommand(*atomicCMD);
-			atmRstCMD->commandType = (OPEN_PAGE ? WRITE : WRITE_P);
-			atmRstCMD->dataSize = 16;
-			atmRstCMD->lastCMD = true;
-			if(!atmRstCMD->posted) {
-				atmRstCMD->trace = NULL;
+		if(atomicOperLeft == 0) {
+			//The results are written back to DRAM, overwriting the original memory operands
+			if(atomicCMD->packetCMD != EQ16 && atomicCMD->packetCMD != EQ8) {
+				DRAMCommand *atmRstCMD = new DRAMCommand(*atomicCMD);
+				atmRstCMD->commandType = (OPEN_PAGE ? WRITE : WRITE_P);
+				atmRstCMD->dataSize = 16;
+				atmRstCMD->lastCMD = true;
+				if(!atmRstCMD->posted) {
+					atmRstCMD->trace = NULL;
+				}
+				if(QUE_PER_BANK) {
+					commandQueue->queue[atomicCMD->bank].insert(commandQueue->queue[atomicCMD->bank].begin(), atmRstCMD);
+					classID.str( string() );	classID.clear();
+					classID << atomicCMD->bank;
+					DE_CR(ALI(18)<<(commandQueue->header+"-"+classID.str()+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
+				}
+				else {
+					commandQueue->queue[0].insert(commandQueue->queue[0].begin(), atmRstCMD);
+					DE_CR(ALI(18)<<(commandQueue->header+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
+				}
 			}
-			if(QUE_PER_BANK) {
-				commandQueue->queue[atomicCMD->bank].insert(commandQueue->queue[atomicCMD->bank].begin(), atmRstCMD);
-				classID.str( string() );	classID.clear();
-				classID << atomicCMD->bank;
-				DE_CR(ALI(18)<<(commandQueue->header+"-"+classID.str()+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
+			
+			if(!atomicCMD->posted) {
+				MakeRespondPacket(atomicCMD);
 			}
-			else {
-				commandQueue->queue[0].insert(commandQueue->queue[0].begin(), atmRstCMD);
-				DE_CR(ALI(18)<<(commandQueue->header+")")<<ALI(15)<<*atmRstCMD<<"Down) PUSHING atomic result command into command queue");
-			}
+			delete atomicCMD;
+			atomicCMD = NULL;
 		}
-		
-		if(!atomicCMD->posted) {
-			MakeRespondPacket(atomicCMD);
+		else {
+			DEBUG(ALI(18)<<(commandQueue->header+")")<<ALI(15)<<*atomicCMD<<"Down) Atomic command is now operating ["<<atomicOperLeft<<" clk]");
+			atomicOperLeft--;
 		}
-		delete atomicCMD;
-		atomicCMD = NULL;
 	}
 
 	//Power-down mode setting
@@ -354,98 +365,98 @@ bool VaultController::ConvPacketIntoCMDs(Packet *packet)
 	AddressMapping(packet->ADRS, bankAdd, colAdd, rowAdd);
 	
 	DRAMCommandType tempCMD;
-	unsigned tempSize;		//one unit - 64 bits
 	bool tempPosted = false;
 	bool atomic = false;
 	switch(packet->CMD) {
 		//Write
-		case WR16:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 16;	break;
-		case WR32:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 32;	break;
-		case WR48:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 48;	break;
-		case WR64:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 64;	break;
-		case WR80:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 80;	break;
-		case WR96:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 96;	break;
-		case WR112:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 112;	break;
-		case WR128:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 128;	break;
-		case WR256:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 256;	break;
-		case MD_WR:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 16;	break;
+		case WR16:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR32:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR48:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR64:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR80:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR96:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR112:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR128:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case WR256:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
+		case MD_WR:		tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	break;
 		//Poseted Write
-		case P_WR16:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 16;	tempPosted = true;	break;
-		case P_WR32:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 32;	tempPosted = true;	break;
-		case P_WR48:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 48;	tempPosted = true;	break;
-		case P_WR64:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 64;	tempPosted = true;	break;
-		case P_WR80:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 80;	tempPosted = true;	break;
-		case P_WR96:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 96;	tempPosted = true;	break;
-		case P_WR112:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 112;	tempPosted = true;	break;
-		case P_WR128:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 128;	tempPosted = true;	break;
-		case P_WR256:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempSize = 256;	tempPosted = true;	break;
+		case P_WR16:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR32:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR48:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR64:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR80:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR96:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR112:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR128:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
+		case P_WR256:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
 		//Read
-		case RD16:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case RD32:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 32;	pendingReadData.push_back(packet->TAG);	break;
-		case RD48:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 48;	pendingReadData.push_back(packet->TAG);	break;
-		case RD64:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 64;	pendingReadData.push_back(packet->TAG);	break;
-		case RD80:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 80;	pendingReadData.push_back(packet->TAG);	break;
-		case RD96:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 96;	pendingReadData.push_back(packet->TAG);	break;
-		case RD112:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 112;	pendingReadData.push_back(packet->TAG);	break;
-		case RD128:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 128;	pendingReadData.push_back(packet->TAG);	break;
-		case RD256:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 256;	pendingReadData.push_back(packet->TAG);	break;
-		case MD_RD:		tempCMD = OPEN_PAGE ? READ : READ_P;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case RD16:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD32:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD48:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD64:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD80:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD96:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD112:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD128:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD256:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case MD_RD:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
 		//Arithmetic atomic
-		case _2ADD8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case ADD16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case P_2ADD8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
-		case P_ADD16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
-		case _2ADDS8R:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case ADDS16R:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case INC8:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case P_INC8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case _2ADD8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case ADD16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case P_2ADD8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case P_ADD16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case _2ADDS8R:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case ADDS16R:	atomic = true;	tempCMD = READ; pendingReadData.push_back(packet->TAG);	break;
+		case INC8:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case P_INC8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
 		//Boolean atomic
-		case XOR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case OR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case NOR16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case AND16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case NAND16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case XOR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case OR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case NOR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case AND16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case NAND16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
 		//Comparison atomic
-		case CASGT8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case CASLT8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case CASGT16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case CASLT16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case CASEQ8:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case CASZERO16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case EQ16:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case EQ8:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
+		case CASGT8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASLT8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASGT16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASLT16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASEQ8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASZERO16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case EQ16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case EQ8:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
 		//Bitwise atomic
-		case BWR:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;
-		case P_BWR:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break; 
-		case BWR8R:		atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break; 
-		case SWAP16:	atomic = true;	tempCMD = READ;	tempSize = 16;	pendingReadData.push_back(packet->TAG);	break;											
+		case BWR:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case P_BWR:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break; 
+		case BWR8R:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break; 
+		case SWAP16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;											
 		
 		default:
 			ERROR(header<<"  == Error - WRONG packet command type  (CurrentClock : "<<currentClockCycle<<")");
 			exit(0);
 	}
 	
-	if(commandQueue->AvailableSpace(bankAdd, ceil((double)tempSize/ADDRESS_MAPPING)+1)) {
+	//Due to the internal 32-byte granularity of the DRAM data bus within each vault in the HMC (HMC spec v2.1 p.99)
+	if(commandQueue->AvailableSpace(bankAdd, ceil((double)packet->reqDataSize/32)+1)) {
 		DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<"Down) phyAdd : 0x"<<hex<<setw(9)<<setfill('0')<<packet->ADRS<<dec<<"  bankAdd : "<<bankAdd<<"  colAdd : "<<colAdd<<"  rowAdd : "<<rowAdd);
 		//cmdtype, tag, bnk, col, rw, *dt, dSize, pst, *lat
-		DRAMCommand *actCMD = new DRAMCommand(ACTIVATE, packet->TAG, bankAdd, colAdd, rowAdd, 0, false, packet->trace, true, packet->CMD, atomic);
+		DRAMCommand *actCMD = new DRAMCommand(ACTIVATE, packet->TAG, bankAdd, colAdd, rowAdd, 0, false, packet->trace, true, packet->CMD, atomic, packet->segment);
 		commandQueue->Enqueue(bankAdd, actCMD);
 		
-		for(int i=0; i<ceil((double)tempSize/ADDRESS_MAPPING); i++) {
+		for(int i=0; i<ceil((double)packet->reqDataSize/32); i++) {
 			DRAMCommand *rwCMD;
-			if(i < ceil((double)tempSize/ADDRESS_MAPPING)-1) {
+			if(i < ceil((double)packet->reqDataSize/32)-1) {
 				if(tempCMD == WRITE_P) {
-					rwCMD = new DRAMCommand(WRITE, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+					rwCMD = new DRAMCommand(WRITE, packet->TAG, bankAdd, colAdd, rowAdd, packet->reqDataSize, tempPosted, packet->trace, false, packet->CMD, atomic, packet->segment);
 				}
 				else if(tempCMD == READ_P) {
-					rwCMD = new DRAMCommand(READ, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+					rwCMD = new DRAMCommand(READ, packet->TAG, bankAdd, colAdd, rowAdd, packet->reqDataSize, tempPosted, packet->trace, false, packet->CMD, atomic, packet->segment);
 				}
 				else {
-					rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, false, packet->CMD, atomic);
+					rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, packet->reqDataSize, tempPosted, packet->trace, false, packet->CMD, atomic, packet->segment);
 				}
 			}
 			else {
-				rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, tempSize, tempPosted, packet->trace, true, packet->CMD, atomic);
+				rwCMD = new DRAMCommand(tempCMD, packet->TAG, bankAdd, colAdd, rowAdd, packet->reqDataSize, tempPosted, packet->trace, true, packet->CMD, atomic, packet->segment);
 			}
 			commandQueue->Enqueue(bankAdd, rwCMD);
 			if(tempCMD == READ || tempCMD == READ_P) {

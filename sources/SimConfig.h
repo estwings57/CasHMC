@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -85,12 +85,12 @@ static int LINK_BER = -10;			//(the power of 10) High speed serial links (SerDes
 
 									
 //If you want to make new sceme, it is necessary to modify FindAvailableLink function
-enum PRIORITY_LINK_SCHEME
+enum LINK_PRIORITY_SCHEME
 {
 	ROUND_ROBIN,
 	BUFFER_AWARE
 };
-static PRIORITY_LINK_SCHEME PRIORITY_LINK = ROUND_ROBIN;
+static LINK_PRIORITY_SCHEME LINK_PRIORITY = ROUND_ROBIN;
 
 
 unsigned inline _log2(unsigned value)

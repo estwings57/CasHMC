@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -47,7 +47,8 @@ public:
 	vector<DualVectorObject<Packet, Packet> *> downBufferDest;
 	vector<LinkMaster *> upBufferDest;
 	int inServiceLink;
-	bool bufOverflow;
+	vector<unsigned> pendingSegTag;		//Store segment packet tag for returning
+	vector<Packet *> pendingSegPacket;	//Store segment packets
 };
 
 }

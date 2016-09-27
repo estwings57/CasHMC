@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -14,8 +14,8 @@
 namespace CasHMC
 {
 	
-DRAMCommand::DRAMCommand(DRAMCommandType cmdtype, unsigned tag, unsigned bnk, unsigned col, unsigned rw, 
-							unsigned dSize, bool pst, TranTrace *lat, bool last, PacketCommandType pktCMD, bool atm):
+DRAMCommand::DRAMCommand(DRAMCommandType cmdtype, unsigned tag, unsigned bnk, unsigned col, unsigned rw, unsigned dSize,
+							bool pst, TranTrace *lat, bool last, PacketCommandType pktCMD, bool atm, bool seg):
 	commandType(cmdtype),
 	packetTAG(tag),
 	bank(bnk),
@@ -26,7 +26,8 @@ DRAMCommand::DRAMCommand(DRAMCommandType cmdtype, unsigned tag, unsigned bnk, un
 	trace(lat),
 	lastCMD(last),
 	packetCMD(pktCMD),
-	atomic(atm)
+	atomic(atm),
+	segment(seg)
 {
 }
 
@@ -43,6 +44,7 @@ DRAMCommand::DRAMCommand(const DRAMCommand &dc)
 	lastCMD = dc.lastCMD;
 	packetCMD = dc.packetCMD;
 	atomic = dc.atomic;
+	segment = dc.segment;
 }
 
 DRAMCommand::~DRAMCommand()

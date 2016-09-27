@@ -1,5 +1,5 @@
 CasHMC: A Cycle-accurate Simulator for Hybrid Memory Cube
-version CasHMC v1.1 - 2016.07.21
+version CasHMC v1.2 - 2016.09.27
 
 1. Developer
 
@@ -8,7 +8,7 @@ version CasHMC v1.1 - 2016.07.21
   Hanyang University
   estwings57 [at] gmail [dot] com
 
-  
+
 2. About CasHMC
 
   CasHMC provides a cycle-by-cycle simulation of every module in HMC, and 
@@ -24,7 +24,7 @@ version CasHMC v1.1 - 2016.07.21
   in parallel with other simulators that generate memory access patterns 
   such as a processor simulator or a memory trace generator.
 
-  
+
 3. CasHMC version info
 
   v1.0 (2016.05.07 released)
@@ -34,31 +34,37 @@ version CasHMC v1.1 - 2016.07.21
   v1.1 (2016.07.21 released)
    - Support 'atomic commands' refered to HMC specification 2.1 (arithmetic, bitwise, boolean, comparison)
      for more information, check Transaction.h (TransactionType) or RunSim.cpp (line 86)
+	 
+  v1.2 (2016.09.27 released)
+   - Modify vault mapping (CrossbarSwitch) of the packet bigger than the maximum block size
+   - Support a new link priority scheme (buffer-aware scheme)
+   - Add one cycle delay for an atomic command operation in VaultController class (atomicOperLeft)
+   - Minor revision (few mistakes)
 
-  
+
 4. Getting CasHMC
 
   CasHMC is available on github.
   https://github.com/estwings57/CasHMC
-  
-  
+
+
 5. Folder directory
-  
+
   graph : Gnuplot script file and a graph data file after a simulation run is over
   result : Log files after a simulation run is over
   sources : All CasHMC source files
   trace : The example of trace files (The files are extracted from SPEC CPU2006 benchmarks)
-  
-  
+
+
 6. Building CasHMC
-  
+
   To build an optimized CasHMC
-  
+
   $ make
-  
-  
+
+
 7. Running CasHMC
-  
+
   > Command line arguments
   
   -c (--cycle)   : The number of CPU cycles to be simulated
@@ -93,3 +99,9 @@ version CasHMC v1.1 - 2016.07.21
       Transaction *newTran = new Transaction(tranType, addr, dataSize, casHMCWrapper);
       casHMCWrapper->ReceiveTran(newTran);
       ...
+
+
+8. Special thanks to
+
+   HyeJin Choi,
+   Kyeong-Bin Park

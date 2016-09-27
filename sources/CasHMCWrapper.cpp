@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -517,7 +517,7 @@ void CasHMCWrapper::PrintSetting(struct tm t)
 	settingOut<<ALI(36)<<" The number of IRTRY packet : "<<NUM_OF_IRTRY<<endl;
 	settingOut<<ALI(36)<<" Retry attempt limit : "<<RETRY_ATTEMPT_LIMIT<<endl;
 	settingOut<<ALI(36)<<" Link BER (the power of 10) : "<<LINK_BER<<endl;
-	settingOut<<ALI(36)<<" Link priority scheme : "<<PRIORITY_LINK<<endl;
+	settingOut<<ALI(36)<<" Link priority scheme : "<<LINK_PRIORITY<<endl;
 	
 	settingOut<<endl<<"              ==== DRAM general setting ===="<<endl;
 	settingOut<<ALI(36)<<" Memory density : "<<MEMORY_DENSITY<<endl;

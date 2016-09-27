@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -59,6 +59,7 @@ public:
 	CommandQueue *commandQueue;
 	DRAMCommand *poppedCMD;
 	DRAMCommand *atomicCMD;
+	unsigned atomicOperLeft;
 	unsigned pendingDataSize;
 	vector<unsigned> pendingReadData;	//Store Read packet TAG for return data
 	DualVectorObject<Packet, Packet> *upBufferDest;

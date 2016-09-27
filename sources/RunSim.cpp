@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -61,59 +61,59 @@ void parseTraceFileLine(string &line, uint64_t &clockCycle, uint64_t &addr, Tran
 {
 	int previousIndex=0;
 	int spaceIndex=0;
-	string  clockStr="", addrStr="", typeStr="", sizeStr="";
+	string  tempStr="";
 
 	spaceIndex = line.find_first_of(" ", 0);
 	if(spaceIndex==-1)	ERROR("  == Error - tracefile format is wrong : "<<line);
-	clockStr = line.substr(0, spaceIndex);
-	istringstream clock(clockStr);
+	tempStr = line.substr(0, spaceIndex);
+	istringstream clock(tempStr);
 	clock>>clockCycle;
 	previousIndex = spaceIndex;
 
 	spaceIndex = line.find_first_not_of(" ", previousIndex);
 	if(spaceIndex==-1)	ERROR("  == Error - tracefile format is wrong : "<<line);
-	addrStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
-	istringstream add(addrStr.substr(2));
+	tempStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+	istringstream add(tempStr.substr(2));
 	add>>hex>>addr;
 	previousIndex = line.find_first_of(" ", spaceIndex);
 
 	spaceIndex = line.find_first_not_of(" ", previousIndex);
 	if(spaceIndex==-1)	ERROR("  == Error - tracefile format is wrong : "<<line);
 	
-	typeStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
-	if(typeStr.compare("READ")==0)			tranType = DATA_READ;
-	else if(typeStr.compare("WRITE")==0)	tranType = DATA_WRITE;
+	tempStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+	if(tempStr.compare("READ")==0)			tranType = DATA_READ;
+	else if(tempStr.compare("WRITE")==0)	tranType = DATA_WRITE;
 	//Arithmetic atomic
-	else if(typeStr.compare("2ADD8")==0)	tranType = ATM_2ADD8;
-	else if(typeStr.compare("ADD16")==0)	tranType = ATM_ADD16;
-	else if(typeStr.compare("P_2ADD8")==0)	tranType = ATM_P_2ADD8;
-	else if(typeStr.compare("P_ADD16")==0)	tranType = ATM_P_ADD16;
-	else if(typeStr.compare("2ADDS8R")==0)	tranType = ATM_2ADDS8R;
-	else if(typeStr.compare("ADDS16R")==0)	tranType = ATM_ADDS16R;
-	else if(typeStr.compare("INC8")==0)		tranType = ATM_INC8;
-	else if(typeStr.compare("P_INC8")==0)	tranType = ATM_P_INC8;
+	else if(tempStr.compare("2ADD8")==0)	tranType = ATM_2ADD8;
+	else if(tempStr.compare("ADD16")==0)	tranType = ATM_ADD16;
+	else if(tempStr.compare("P_2ADD8")==0)	tranType = ATM_P_2ADD8;
+	else if(tempStr.compare("P_ADD16")==0)	tranType = ATM_P_ADD16;
+	else if(tempStr.compare("2ADDS8R")==0)	tranType = ATM_2ADDS8R;
+	else if(tempStr.compare("ADDS16R")==0)	tranType = ATM_ADDS16R;
+	else if(tempStr.compare("INC8")==0)		tranType = ATM_INC8;
+	else if(tempStr.compare("P_INC8")==0)	tranType = ATM_P_INC8;
 	//Boolean atomic
-	else if(typeStr.compare("XOR16")==0)	tranType = ATM_XOR16;
-	else if(typeStr.compare("OR16")==0)		tranType = ATM_OR16;
-	else if(typeStr.compare("NOR16")==0)	tranType = ATM_NOR16;
-	else if(typeStr.compare("AND16")==0)	tranType = ATM_AND16;
-	else if(typeStr.compare("NAND16")==0)	tranType = ATM_NAND16;
+	else if(tempStr.compare("XOR16")==0)	tranType = ATM_XOR16;
+	else if(tempStr.compare("OR16")==0)		tranType = ATM_OR16;
+	else if(tempStr.compare("NOR16")==0)	tranType = ATM_NOR16;
+	else if(tempStr.compare("AND16")==0)	tranType = ATM_AND16;
+	else if(tempStr.compare("NAND16")==0)	tranType = ATM_NAND16;
 	//Comparison atomic
-	else if(typeStr.compare("CASGT8")==0)	tranType = ATM_CASGT8;
-	else if(typeStr.compare("CASLT8")==0)	tranType = ATM_CASLT8;
-	else if(typeStr.compare("CASGT16")==0)	tranType = ATM_CASGT16;
-	else if(typeStr.compare("CASLT16")==0)	tranType = ATM_CASLT16;
-	else if(typeStr.compare("CASEQ8")==0)	tranType = ATM_CASEQ8;
-	else if(typeStr.compare("CASZERO16")==0)tranType = ATM_CASZERO16;
-	else if(typeStr.compare("EQ16")==0)		tranType = ATM_EQ16;
-	else if(typeStr.compare("EQ8")==0)		tranType = ATM_EQ8;
+	else if(tempStr.compare("CASGT8")==0)	tranType = ATM_CASGT8;
+	else if(tempStr.compare("CASLT8")==0)	tranType = ATM_CASLT8;
+	else if(tempStr.compare("CASGT16")==0)	tranType = ATM_CASGT16;
+	else if(tempStr.compare("CASLT16")==0)	tranType = ATM_CASLT16;
+	else if(tempStr.compare("CASEQ8")==0)	tranType = ATM_CASEQ8;
+	else if(tempStr.compare("CASZERO16")==0)tranType = ATM_CASZERO16;
+	else if(tempStr.compare("EQ16")==0)		tranType = ATM_EQ16;
+	else if(tempStr.compare("EQ8")==0)		tranType = ATM_EQ8;
 	//Bitwise atomic
-	else if(typeStr.compare("BWR")==0)		tranType = ATM_BWR;
-	else if(typeStr.compare("P_BWR")==0)	tranType = ATM_P_BWR;
-	else if(typeStr.compare("BWR8R")==0)	tranType = ATM_BWR8R;
-	else if(typeStr.compare("SWAP16")==0)	tranType = ATM_SWAP16;
+	else if(tempStr.compare("BWR")==0)		tranType = ATM_BWR;
+	else if(tempStr.compare("P_BWR")==0)	tranType = ATM_P_BWR;
+	else if(tempStr.compare("BWR8R")==0)	tranType = ATM_BWR8R;
+	else if(tempStr.compare("SWAP16")==0)	tranType = ATM_SWAP16;
 	else {
-		ERROR("  == Error - Unknown command in tracefile : "<<typeStr);
+		ERROR("  == Error - Unknown command in tracefile : "<<tempStr);
 	}
 	previousIndex = line.find_first_of(" ", spaceIndex);
 
@@ -122,8 +122,8 @@ void parseTraceFileLine(string &line, uint64_t &clockCycle, uint64_t &addr, Tran
 		dataSize = TRANSACTION_SIZE;
 		return;
 	}
-	sizeStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
-	istringstream size(sizeStr);
+	tempStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+	istringstream size(tempStr);
 	size>>dataSize;
 }
 

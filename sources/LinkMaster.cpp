@@ -1,5 +1,5 @@
 /*********************************************************************************
-*  CasHMC v1.1 - 2016.07.21
+*  CasHMC v1.2 - 2016.09.27
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
 *  Copyright (c) 2016, Dong-Ik Jeon
@@ -525,14 +525,28 @@ void LinkMaster::PrintState()
 //
 int FindAvailableLink(int &link, vector<LinkMaster *> &LM)
 {
-	switch(PRIORITY_LINK) {
+	switch(LINK_PRIORITY) {
 		case ROUND_ROBIN:
 			if(++link >= NUM_LINKS)
 				link=0;
 			return link;
 			break;
 		case BUFFER_AWARE:
-
+			unsigned minBufferSize = MAX_LINK_BUF;
+			unsigned minBufferLink = 0;
+			for(int l=0; l<NUM_LINKS; l++) {
+				int bufSizeTemp = LM[l]->Buffers.size();
+				for(int i=0; i<LM[l]->linkRxTx.size(); i++) {
+					if(LM[l]->linkRxTx[i] != NULL) {
+						bufSizeTemp += LM[l]->linkRxTx[i]->LNG;
+					}
+				}
+				if(bufSizeTemp < minBufferSize) {
+					minBufferSize = bufSizeTemp;
+					minBufferLink = l;
+				}
+			}
+			return minBufferLink;
 			break;
 	}
 	return -1;
