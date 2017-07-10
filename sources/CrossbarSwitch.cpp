@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -77,7 +77,7 @@ void CrossbarSwitch::Update()
 					for(int j=0; j<segPacket; j++) {
 						Packet *vaultPacket = new Packet(*tempPacket);
 						vaultPacket->ADRS += j*ADDRESS_MAPPING;
-						if(j>1)	vaultPacket->trace = NULL;
+						if(j>0)	vaultPacket->trace = NULL;
 						downBuffers.insert(downBuffers.begin()+i, vaultPacket);
 						for(int k=1; k<vaultPacket->LNG; k++) {		//Virtual tail packet
 							downBuffers.insert(downBuffers.begin()+i+1, NULL);
@@ -175,7 +175,12 @@ void CrossbarSwitch::Update()
 					if(link == -1) {
 						//DEBUG(ALI(18)<<header<<ALI(15)<<*upBuffers[i]<<"Up)   all packet buffer FULL");
 					}
-					else if(upBufferDest[link]->currentState != LINK_RETRY) {
+					else if(upBufferDest[link]->currentState != ACTIVE
+					&& upBufferDest[link]->currentState != LINK_RETRY) {
+						continue;
+						//DEBUG(ALI(18)<<header<<ALI(15)<<*downBuffers[0]<<"Down) link "<<l<<" is not ACTIVE mode ["<<downLinkMasters[link]->powerMode<<"]");
+					}
+					else {
 						if(upBufferDest[link]->Receive(upBuffers[i])) {
 							DEBUG(ALI(18)<<header<<ALI(15)<<*upBuffers[i]<<"Up)   SENDING packet to link master "<<link<<" (LM_U"<<link<<")");
 							upBuffers.erase(upBuffers.begin()+i, upBuffers.begin()+i+upBuffers[i]->LNG);

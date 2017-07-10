@@ -6,6 +6,8 @@ set grid
 set xlabel "Simulation plot epoch"
 set ylabel "Bandwidth [GB/s]"
 set key left box
-plot  "CasHMC_plot_No0.dat" using 1:4 title 'HMC' with lines lw 2 , \
-      "CasHMC_plot_No0.dat" using 1:2 title 'Link[0]' with lines lw 1 , \
-      "CasHMC_plot_No0.dat" using 1:3 title 'Link[1]' with lines lw 1 , \
+plot  "CasHMC_plot_no0.dat" using 1:6 title 'HMC' with lines lw 2 , \
+      "CasHMC_plot_no0.dat" using 1:2 title 'Link[0]' with lines lw 1 , \
+      "CasHMC_plot_no0.dat" using 1:3 title 'Link[1]' with lines lw 1 , \
+      "CasHMC_plot_no0.dat" using 1:4 title 'Link[2]' with lines lw 1 , \
+      "CasHMC_plot_no0.dat" using 1:5 title 'Link[3]' with lines lw 1 , \

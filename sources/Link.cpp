@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -50,16 +50,19 @@ void Link::Update(bool lastUpdate)
 {
 	//Transmit packet from buffer
 	if(linkMasterP->linkRxTx.size()>0 && linkMasterP->linkRxTx[0]->bufPopDelay==0 && inFlightPacket==NULL) {
-		if(linkMasterP->currentState == NORMAL || linkMasterP->currentState == LINK_RETRY ||
-		(linkMasterP->currentState == START_RETRY && linkMasterP->linkRxTx[0]->CMD == IRTRY && linkMasterP->linkRxTx[0]->FRP == 1)) {
+	//	if(linkMasterP->currentState == ACTIVE
+	//	|| linkMasterP->currentState == LINK_RETRY
+	//	|| (linkMasterP->currentState == START_RETRY && linkMasterP->linkRxTx[0]->CMD == IRTRY && linkMasterP->linkRxTx[0]->FRP == 1)
+	//	|| ((linkMasterP->currentState == WAIT || linkMasterP->currentState == SLEEP) && linkMasterP->linkRxTx[0]->CMD == QUIET)
+	//	|| linkMasterP->linkRxTx[0]->CMD == NULL_) {
 			inFlightPacket = linkMasterP->linkRxTx[0];
 			UpdateStatistic(inFlightPacket);
 			inFlightCountdown = (inFlightPacket->LNG * 128) / LINK_WIDTH;
 			DEBUG(ALI(18)<<header<<ALI(15)<<*inFlightPacket<<(downstream ? "Down) " : "Up)   ")<<"START transmission packet");
 			linkMasterP->linkRxTx.erase(linkMasterP->linkRxTx.begin());
-		}
+	//	}
 	}
-
+	
 	if(inFlightCountdown > 0) {
 		inFlightCountdown--;
 		//Packet transmission done
@@ -76,7 +79,7 @@ void Link::Update(bool lastUpdate)
 			DEBUG(ALI(18)<<header<<ALI(15)<<*inFlightPacket<<(downstream ? "Down) " : "Up)   ")<<"Link transmiting countdown : "<<ALI(2)<<inFlightCountdown);
 		}
 	}
-
+	
 	if(lastUpdate && linkMasterP->linkRxTx.size()>0) {
 		for(int i=0; i<linkMasterP->linkRxTx.size(); i++) {
 			linkMasterP->linkRxTx[i]->bufPopDelay = (linkMasterP->linkRxTx[i]->bufPopDelay>0) ? linkMasterP->linkRxTx[i]->bufPopDelay-1 : 0;
@@ -108,11 +111,15 @@ void Link::UpdateStatistic(Packet *packet)
 			statis->reqPerLink[linkID]++;
 			packet->trace->linkTransmitTime = linkMasterP->currentClockCycle;
 
-			if((WR16 <= packet->CMD && packet->CMD <= MD_WR) || packet->CMD == WR256
-			|| (P_WR16 <= packet->CMD && packet->CMD <= P_WR128) || packet->CMD == P_WR256) {
+			if((WR16 <= packet->CMD && packet->CMD <= MD_WR)
+			|| packet->CMD == WR256
+			|| (P_WR16 <= packet->CMD && packet->CMD <= P_WR128)
+			|| packet->CMD == P_WR256) {
 				statis->writePerLink[linkID]++;
 			}
-			else if((RD16 <= packet->CMD && packet->CMD <= RD128) || packet->CMD == RD256 || packet->CMD == MD_RD) {
+			else if((RD16 <= packet->CMD && packet->CMD <= RD128)
+			|| packet->CMD == RD256
+			|| packet->CMD == MD_RD) {
 				statis->readPerLink[linkID]++;
 			}
 			else {

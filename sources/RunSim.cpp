@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -16,20 +16,35 @@
 
 #include "CasHMCWrapper.h"
 #include "Transaction.h"
+#include "CallBack.h"
 
 using namespace std;
 using namespace CasHMC;
 
-long numSimCycles = 100000;
+extern long numSimCycles;
+extern string traceType;
+extern double memUtil;
+extern double rwRatio;
+extern string traceFileName;
+
 uint64_t lineNumber = 1;
-double memUtil = 0.1;
-double rwRatio = 80;
-string traceType = "";
-string traceFileName = "";
 vector<Transaction *> transactionBuffers;
 CasHMCWrapper *casHMCWrapper;
 
-void help()
+#ifdef CALLBACKTRANS
+class CallbackTrans
+{
+	public:
+		void ReadComplete(uint64_t addr, uint64_t cycle) {
+			cout<<" # ["<<cycle<<"] ReadComplete  addr : 0x"<<hex<<setw(9)<<setfill('0')<<addr<<dec<<endl;
+		}
+		void WriteComplete(uint64_t addr, uint64_t cycle) {
+			cout<<" # ["<<cycle<<"] WriteComplete  addr : 0x"<<hex<<setw(9)<<setfill('0')<<addr<<dec<<endl;
+		}
+};
+#endif
+
+void Help()
 {
 	cout<<endl<<"-c (--cycle)   : The number of CPU cycles to be simulated"<<endl;
 	cout<<"-t (--trace)   : Trace type ('random' or 'file')"<<endl;
@@ -57,7 +72,7 @@ void MakeRandomTransaction(void)
 	}
 }
 
-void parseTraceFileLine(string &line, uint64_t &clockCycle, uint64_t &addr, TransactionType &tranType, unsigned &dataSize)
+void ParseTraceFileLine(string &line, uint64_t &clockCycle, uint64_t &addr, TransactionType &tranType, unsigned &dataSize)
 {
 	int previousIndex=0;
 	int spaceIndex=0;
@@ -132,6 +147,12 @@ int main(int argc, char **argv)
 	//
 	//parse command-line options setting
 	//
+	numSimCycles = 100000;
+	memUtil = 0.1;
+	rwRatio = 80;
+	traceType = "";
+	traceFileName = "";
+	
 	int opt;
 	string pwdString = "";
 	ifstream traceFile;
@@ -205,14 +226,22 @@ int main(int argc, char **argv)
 				break;
 			case 'h':
 			case '?':
-				help();
+				Help();
 				exit(0);
 				break;
 		}
 	}
 	
 	srand((unsigned)time(NULL));
-	casHMCWrapper = new CasHMCWrapper();
+	casHMCWrapper = new CasHMCWrapper("ConfigSim.ini", "ConfigDRAM.ini");
+	
+#ifdef CALLBACKTRANS
+	//Register callback function (ReadComplete, WriteComplete)
+	CallbackTrans callbackTrans;
+	TransCompCB* read_cb = new Callback<CallbackTrans, void, uint64_t, uint64_t>(&callbackTrans, &CallbackTrans::ReadComplete);
+    TransCompCB* write_cb = new Callback<CallbackTrans, void, uint64_t, uint64_t>(&callbackTrans, &CallbackTrans::WriteComplete);
+	casHMCWrapper->RegisterCallbacks(read_cb, write_cb);
+#endif
 	
 	if(traceType == "random") {
 		for(uint64_t cpuCycle=0; cpuCycle<numSimCycles; cpuCycle++) {
@@ -240,7 +269,7 @@ int main(int argc, char **argv)
 						uint64_t addr;
 						TransactionType tranType;
 						unsigned dataSize;
-						parseTraceFileLine(line, issueClock, addr, tranType, dataSize);
+						ParseTraceFileLine(line, issueClock, addr, tranType, dataSize);
 						Transaction *newTran = new Transaction(tranType, addr, dataSize, casHMCWrapper);
 						
 						if(cpuCycle >= issueClock) {

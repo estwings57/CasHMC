@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -244,7 +244,7 @@ void DRAM::UpdateState()
 	}
 
 	//Send back return command to vault controller
-	if(readReturnCountdown.size() > 0 && readReturnCountdown[0]==0) {
+	if(readReturnCountdown.size() > 0 && readReturnCountdown[0] == 0) {
 		readData = readReturnDATA[0];
 		dataCyclesLeft = BL;
 		readReturnDATA.erase(readReturnDATA.begin());

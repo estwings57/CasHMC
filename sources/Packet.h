@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -20,7 +20,7 @@
 #include <iostream> 	//ostream
 #include <sstream>		//stringstream
 
-#include "SimConfig.h"
+#include "ConfigValue.h"
 #include "TranTrace.h"
 
 #define RES 0
@@ -29,8 +29,6 @@ using namespace std;
 
 namespace CasHMC
 {
-	
-static unsigned packetGlobalTAG=0;
 
 enum PacketType
 {
@@ -51,7 +49,7 @@ enum PacketCommandType
 	CASGT8=96, CASLT8, CASGT16, CASLT16, CASEQ8, CASZERO16, EQ16=104, EQ8, 				//COMPARISON ATOMICS
 	BWR=17, P_BWR=33, BWR8R=81, SWAP16=106, 											//BITWISE ATOMICS
 	//Flow Commands
-	NULL_=0, PRET=1, TRET=2, IRTRY=3,
+	NULL_=0, PRET=1, TRET=2, IRTRY=3, QUIET=4,
 	
 	//Respond commands
 	RD_RS=56, WR_RS, MD_RD_RS, MD_WR_RS, ERROR=62
@@ -89,7 +87,8 @@ public:
 	unsigned SEQ, FRP, RRP;
 	
 	//Request Packet Fields
-	uint64_t ADRS, Pb;
+	uint64_t ADRS;
+	unsigned Pb;
 	
 	//Response Packet Fields
 	unsigned AF, ERRSTAT, DINV;
