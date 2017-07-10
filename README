@@ -118,7 +118,7 @@ version CasHMC v1.3 - 2017.07.10
   (gem5 download : $ hg clone http://repo.gem5.org/gem5)
   
     $ cp -a CasHMC/integration/gem5/integ_CasHMC-gem5.sh $GEM5_DIR
-	$ source $GEM5_DIR/integ_CasHMC-gem5.sh
+    $ source $GEM5_DIR/integ_CasHMC-gem5.sh
 
 
 8. Special thanks to
