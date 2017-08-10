@@ -21,25 +21,25 @@
 //Debug setting
 //
 #ifdef DEBUG_LOG
-	#define DEBUG(str)	if(DEBUG_SIM && !ONLY_CR) {debugOut<<str<<std::endl;}
+	#define DEBUG(str)	if(DEBUG_SIM && !ONLY_CR) {debugOut<<str<<endl;}
 	#define DEBUGN(str)	if(DEBUG_SIM && !ONLY_CR) {debugOut<<str;}
-	#define DE_CR(str)	if(DEBUG_SIM) {debugOut<<str<<std::endl;}
+	#define DE_CR(str)	if(DEBUG_SIM) {debugOut<<str<<endl;}
 	#define DEN_CR(str)	if(DEBUG_SIM) {debugOut<<str;}
-	#define STATE(str)	if(STATE_SIM) {stateOut<<str<<std::endl;}
+	#define STATE(str)	if(STATE_SIM) {stateOut<<str<<endl;}
 	#define STATEN(str)	if(STATE_SIM) {stateOut<<str;}
-	#define DE_ST(str)	if(DEBUG_SIM) {debugOut<<str<<std::endl;}	if(STATE_SIM) {stateOut<<str<<std::endl;}
+	#define DE_ST(str)	if(DEBUG_SIM) {debugOut<<str<<endl;}	if(STATE_SIM) {stateOut<<str<<endl;}
 	#define DE_STN(str)	if(DEBUG_SIM) {debugOut<<str;}				if(STATE_SIM) {stateOut<<str;}
 #else
-	#define DEBUG(str)	if(DEBUG_SIM && !ONLY_CR) {std::cout<<str<<std::endl;}
+	#define DEBUG(str)	if(DEBUG_SIM && !ONLY_CR) {std::cout<<str<<endl;}
 	#define DEBUGN(str)	if(DEBUG_SIM && !ONLY_CR) {std::cout<<str;}
-	#define DE_CR(str)	if(DEBUG_SIM) {std::cout<<str<<std::endl;}
+	#define DE_CR(str)	if(DEBUG_SIM) {std::cout<<str<<endl;}
 	#define DEN_CR(str)	if(DEBUG_SIM) {std::cout<<str;}
-	#define STATE(str)	if(STATE_SIM) {std::cout<<str<<std::endl;}
+	#define STATE(str)	if(STATE_SIM) {std::cout<<str<<endl;}
 	#define STATEN(str)	if(STATE_SIM) {std::cout<<str;}
-	#define DE_ST(str)	if(DEBUG_SIM || STATE_SIM) {std::cout<<str<<std::endl;}
+	#define DE_ST(str)	if(DEBUG_SIM || STATE_SIM) {std::cout<<str<<endl;}
 	#define DE_STN(str)	if(DEBUG_SIM || STATE_SIM) {std::cout<<str;}
 #endif	
-#define ERROR(str)	std::cerr<<"[ERROR ("<<__FILE__<<":"<<__LINE__<<")]: "<<str<<std::endl;
+#define ERROR(str)	std::cerr<<"[ERROR ("<<__FILE__<<":"<<__LINE__<<")]: "<<str<<endl;
 #define ALI(n)		setw(n)<<setfill(' ')
 
 

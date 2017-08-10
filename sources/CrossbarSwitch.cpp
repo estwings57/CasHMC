@@ -139,7 +139,10 @@ void CrossbarSwitch::Update()
 				for(int j=0; j<pendingSegPacket.size(); j++) {
 					if(upBuffers[i]->TAG == pendingSegPacket[j]->TAG) {
 						if(upBuffers[i]->LNG > 1)	pendingSegPacket[j]->LNG += ADDRESS_MAPPING/16;
-						if(upBuffers[i]->trace != NULL)	pendingSegPacket[j]->trace = upBuffers[i]->trace;
+						if(upBuffers[i]->trace != NULL) { //It is the first segment packet
+							pendingSegPacket[j]->trace = upBuffers[i]->trace;
+							pendingSegPacket[j]->ADRS = upBuffers[i]->ADRS;
+						}
 						//Delete a segment packet
 						int packetLNG = upBuffers[i]->LNG;
 						delete upBuffers[i];

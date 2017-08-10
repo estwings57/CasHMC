@@ -79,8 +79,10 @@ CasHMCWrapper::CasHMCWrapper(string simCfg, string dramCfg)
 	//
 	// Log files generation
 	//
-	int status = 1;
-	status = mkdir("result", S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH | S_IXOTH);
+	int status_rst = 1;
+	int status_grp = 1;
+	status_rst = mkdir("result", S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH | S_IXOTH);
+	status_grp = mkdir("graph", S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH | S_IXOTH);
 	
 	time_t now;
     struct tm t;
@@ -107,24 +109,43 @@ CasHMCWrapper::CasHMCWrapper(string simCfg, string dramCfg)
 	cout<<"****************************************************************"<<endl<<endl;
 	cout.setf(ios::left); 
 	cout<<" = Log folder generating information"<<endl;
-	if(status == 0) {
+	if(status_rst == 0) {
 		cout<<"   Making result folder success (./result/)"<<endl;
 	}
 	else {
 		if(errno == EEXIST) {
 			cout<<"   Result folder already exists (./result/)"<<endl;
-			status = 0;
+			status_rst = 0;
 		}
 		else {
 			cout<<"   Making result folder fail"<<endl;
 			cout<<"   Debug and result files will be generated in CasHMC folder (./)"<<endl<<endl;
 		}
 	}
+	if(status_grp == 0) {
+		cout<<"   Making graph folder success (./graph/)"<<endl;
+	}
+	else {
+		if(errno == EEXIST) {
+			cout<<"   Graph folder already exists (./graph/)"<<endl;
+			status_grp = 0;
+		}
+		else {
+			cout<<"   Making graph folder fail"<<endl;
+			cout<<"   graph files will be generated in CasHMC folder (./)"<<endl<<endl;
+		}
+	}
 	
-	if(status == 0)
+	if(status_rst == 0)
 		logName = "result/CasHMC";
 	else
 		logName = "CasHMC";
+	
+	string plotName;
+	if(status_grp == 0)
+		plotName = "graph/CasHMC_plot_no";
+	else
+		plotName = "CasHMC_plot_no";
 
 	unsigned int ver_num = 0;
 	stringstream temp_vn;
@@ -151,7 +172,6 @@ CasHMCWrapper::CasHMCWrapper(string simCfg, string dramCfg)
 		upLinkDataSizeTemp = vector<uint64_t>(NUM_LINKS, 0);
 		
 		//Plot data file initialization
-		string plotName = "graph/CasHMC_plot_no";
 		plotName += temp_vn.str();
 		plotName += ".dat";
 		plotDataOut.open(plotName.c_str());
@@ -165,7 +185,7 @@ CasHMCWrapper::CasHMCWrapper(string simCfg, string dramCfg)
 			string plotLink = "Link[" + linkNum.str() + ']';
 			plotDataOut<<setw(10)<<setfill(' ')<<plotLink;
 		}
-		plotDataOut<<setw(10)<<setfill(' ')<<"HMC bandwidth"<<std::endl;
+		plotDataOut<<setw(10)<<setfill(' ')<<"HMC bandwidth"<<endl;
 		
 		//Plot script file initialization
 		plotName.erase(plotName.find(".dat"));
@@ -177,17 +197,17 @@ CasHMCWrapper::CasHMCWrapper(string simCfg, string dramCfg)
 		plotName += temp_vn.str();
 		plotName += ".png";
 		
-		plotScriptOut<<"set term png size 800, 500 font \"Times-Roman,\""<<std::endl;
-		plotScriptOut<<"set output '"<<plotName<<"'"<<std::endl;
-		plotScriptOut<<"set title \"CasHMC bandwidth graph\" font \",18\""<<std::endl;
-		plotScriptOut<<"set autoscale"<<std::endl;
-		plotScriptOut<<"set grid"<<std::endl;
-		plotScriptOut<<"set xlabel \"Simulation plot epoch\""<<std::endl;
-		plotScriptOut<<"set ylabel \"Bandwidth [GB/s]\""<<std::endl;
-		plotScriptOut<<"set key left box"<<std::endl;
-		plotScriptOut<<"plot  \"CasHMC_plot_no"<<ver_num<<".dat\" using 1:"<<NUM_LINKS+2<<" title 'HMC' with lines lw 2 , \\"<<std::endl;
+		plotScriptOut<<"set term png size 800, 500 font \"Times-Roman,\""<<endl;
+		plotScriptOut<<"set output '"<<plotName<<"'"<<endl;
+		plotScriptOut<<"set title \"CasHMC bandwidth graph\" font \",18\""<<endl;
+		plotScriptOut<<"set autoscale"<<endl;
+		plotScriptOut<<"set grid"<<endl;
+		plotScriptOut<<"set xlabel \"Simulation plot epoch\""<<endl;
+		plotScriptOut<<"set ylabel \"Bandwidth [GB/s]\""<<endl;
+		plotScriptOut<<"set key left box"<<endl;
+		plotScriptOut<<"plot  \"CasHMC_plot_no"<<ver_num<<".dat\" using 1:"<<NUM_LINKS+2<<" title 'HMC' with lines lw 2 , \\"<<endl;
 		for(int i=0; i<NUM_LINKS; i++) {
-			plotScriptOut<<"      \"CasHMC_plot_no"<<ver_num<<".dat\" using 1:"<<i+2<<" title 'Link["<<i<<"]' with lines lw 1 , \\"<<std::endl;
+			plotScriptOut<<"      \"CasHMC_plot_no"<<ver_num<<".dat\" using 1:"<<i+2<<" title 'Link["<<i<<"]' with lines lw 1 , \\"<<endl;
 		}
 	}
 	
@@ -613,7 +633,7 @@ void CasHMCWrapper::MakePlotData()
 	for(int i=0; i<NUM_LINKS; i++) {
 		plotDataOut<<setw(10)<<setfill(' ')<<linkEffecPlotBandwidth[i];
 	}
-	plotDataOut<<setw(10)<<setfill(' ')<<hmcPlotBandwidth<<std::endl;
+	plotDataOut<<setw(10)<<setfill(' ')<<hmcPlotBandwidth<<endl;
 }
 
 //
