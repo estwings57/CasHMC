@@ -1,7 +1,7 @@
 ****************************************************************
 *                      CasHMC version 1.3                      *
 *                       result log file                        *
-*            Date : 2017/08/21      Time : 13:50:17            *
+*            Date : 2017/08/22      Time : 01:15:46            *
 ****************************************************************
 
 - Trace type : file
@@ -14,7 +14,7 @@
 
         HMC bandwidth :  1.1012 GB/s  (Considered only data size)
        Link bandwidth : 5.50464 GB/s  (Included flow packet)
-     Transmitted data : 0.112762 MB (118240 B)
+     Transmitted data : 115.469 KB (118240 B)
 
   Total power on link :    0.06 mW
 
@@ -59,9 +59,9 @@
   |  Downstream effec Bandwidth :       0 GB/s
   |    Upstream effec Bandwidth : 0.275373 GB/s
   |       Total effec Bandwidth : 0.275373 GB/s
-  | Downstream transmitted data :       0 MB (0 B)
-  |   Upstream transmitted data : 0.0281982 MB (29568 B)
-  -----  Total transmitted data : 0.0281982 MB (29568 B)
+  | Downstream transmitted data :       0  B (0 B)
+  |   Upstream transmitted data :  28.875 KB (29568 B)
+  -----  Total transmitted data :  28.875 KB (29568 B)
 
   ----------------------  [Link 1]
   |               Read per link : 116
@@ -77,9 +77,9 @@
   |  Downstream effec Bandwidth : 0.240803 GB/s
   |    Upstream effec Bandwidth : 0.0345707 GB/s
   |       Total effec Bandwidth : 0.275373 GB/s
-  | Downstream transmitted data : 0.0246582 MB (25856 B)
-  |   Upstream transmitted data : 0.00354004 MB (3712 B)
-  -----  Total transmitted data : 0.0281982 MB (29568 B)
+  | Downstream transmitted data :   25.25 KB (25856 B)
+  |   Upstream transmitted data :   3.625 KB (3712 B)
+  -----  Total transmitted data :  28.875 KB (29568 B)
 
   ----------------------  [Link 2]
   |               Read per link : 923
@@ -95,9 +95,9 @@
   |  Downstream effec Bandwidth : 0.000298023 GB/s
   |    Upstream effec Bandwidth : 0.0342727 GB/s
   |       Total effec Bandwidth : 0.0345707 GB/s
-  | Downstream transmitted data : 3.05176e-05 MB (32 B)
-  |   Upstream transmitted data : 0.00350952 MB (3680 B)
-  -----  Total transmitted data : 0.00354004 MB (3712 B)
+  | Downstream transmitted data :      32  B (32 B)
+  |   Upstream transmitted data : 3.59375 KB (3680 B)
+  -----  Total transmitted data :   3.625 KB (3712 B)
 
   ----------------------  [Link 3]
   |               Read per link : 116
@@ -113,8 +113,8 @@
   |  Downstream effec Bandwidth : 0.240803 GB/s
   |    Upstream effec Bandwidth : 0.275075 GB/s
   |       Total effec Bandwidth : 0.515878 GB/s
-  | Downstream transmitted data : 0.0246582 MB (25856 B)
-  |   Upstream transmitted data : 0.0281677 MB (29536 B)
-  -----  Total transmitted data : 0.0528259 MB (55392 B)
+  | Downstream transmitted data :   25.25 KB (25856 B)
+  |   Upstream transmitted data : 28.8438 KB (29536 B)
+  -----  Total transmitted data : 54.0938 KB (55392 B)
 
   * Effec bandwidth takes data transmission into account regardless of packet header and tail
