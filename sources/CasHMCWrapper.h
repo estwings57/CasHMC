@@ -55,6 +55,7 @@ public:
 	void MakePlotData();
 	void PrintEpochStatistic();
 	void PrintFinalStatistic();
+	string DataScaling(double dataScale);
 	
 	//
 	//Fields
