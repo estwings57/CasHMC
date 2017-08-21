@@ -731,7 +731,6 @@ void CasHMCWrapper::PrintEpochStatistic()
 	//Bandwidth calculation
 	double elapsedTime = (double)(elapsedCycles*CPU_CLK_PERIOD*1E-9);
 	double hmcBandwidth = hmcTransmitSize/elapsedTime/(1<<30);
-	double linkBandwidthMax = LINK_SPEED * LINK_WIDTH / 8;
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
@@ -913,7 +912,6 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	double elapsedTime = (double)(currentClockCycle*CPU_CLK_PERIOD*1E-9);
 	double hmcBandwidth = totalHmcTransmitSize/elapsedTime/(1<<30);
-	double linkBandwidthMax = LINK_SPEED * LINK_WIDTH / 8;
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
