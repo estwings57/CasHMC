@@ -740,7 +740,6 @@ void CasHMCWrapper::PrintEpochStatistic()
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<uint64_t> linkDataSize = vector<uint64_t>(NUM_LINKS, 0);
-	uint64_t dataSize = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = downLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = upLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -751,7 +750,6 @@ void CasHMCWrapper::PrintEpochStatistic()
 		upLinkEffecBandwidth[i] = upLinkDataSize[i] / elapsedTime / (1<<30);
 		linkEffecBandwidth[i] = downLinkEffecBandwidth[i] + upLinkEffecBandwidth[i];
 		linkDataSize[i] = downLinkDataSize[i] + upLinkDataSize[i];
-		dataSize += linkDataSize[i];
 	}
 	
 	//Link low power statistic
@@ -776,7 +774,7 @@ void CasHMCWrapper::PrintEpochStatistic()
 	
 	STATE("        HMC bandwidth : "<<ALI(7)<<hmcBandwidth<<" GB/s  (Considered only data size)");
 	STATE("       Link bandwidth : "<<ALI(7)<<linkBandwidthSum<<" GB/s  (Included flow packet)");
-	STATE("     Transmitted data : "<<ALI(7)<<DataScaling(dataSize)<<" ("<<dataSize<<" B)"<<endl);
+	STATE("     Transmitted data : "<<ALI(7)<<DataScaling(hmcTransmitSize)<<" ("<<hmcTransmitSize<<" B)"<<endl);
 	
 	if(LINK_POWER != NO_MANAGEMENT) {
 		STATE("     Sleep mode ratio : "<<ALI(7)<<SleepModeAve<<" %");
@@ -922,7 +920,6 @@ void CasHMCWrapper::PrintFinalStatistic()
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<uint64_t> totalLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
-	uint64_t totalDataSize = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = totalDownLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = totalUpLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -933,7 +930,6 @@ void CasHMCWrapper::PrintFinalStatistic()
 		upLinkEffecBandwidth[i] = totalUpLinkDataSize[i] / elapsedTime / (1<<30);
 		linkEffecBandwidth[i] = downLinkEffecBandwidth[i] + upLinkEffecBandwidth[i];
 		totalLinkDataSize[i] = totalDownLinkDataSize[i] + totalUpLinkDataSize[i];
-		totalDataSize += totalLinkDataSize[i];
 	}
 	
 	double tranFullMean = (totalTranCount==0 ? 0 : (double)totalTranFullSum/totalTranCount);
@@ -1014,7 +1010,7 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	resultOut<<"        HMC bandwidth : "<<ALI(7)<<hmcBandwidth<<" GB/s  (Considered only data size)"<<endl;
 	resultOut<<"       Link bandwidth : "<<ALI(7)<<linkBandwidthSum<<" GB/s  (Included flow packet)"<<endl;
-	resultOut<<"     Transmitted data : "<<ALI(7)<<DataScaling(totalDataSize)<<" ("<<totalDataSize<<" B)"<<endl<<endl;
+	resultOut<<"     Transmitted data : "<<ALI(7)<<DataScaling(totalHmcTransmitSize)<<" ("<<totalHmcTransmitSize<<" B)"<<endl<<endl;
 	
 	if(LINK_POWER != NO_MANAGEMENT) {
 		resultOut<<"    Active link power : "<<ALI(7)<<ActPower<<" mW"<<endl;
