@@ -739,7 +739,8 @@ void CasHMCWrapper::PrintEpochStatistic()
 	vector<double> downLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkEffecBandwidthSum = 0;
+	vector<uint64_t> linkDataSize = vector<uint64_t>(NUM_LINKS, 0);
+	uint64_t dataSize = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = downLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = upLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -749,7 +750,8 @@ void CasHMCWrapper::PrintEpochStatistic()
 		downLinkEffecBandwidth[i] = downLinkDataSize[i] / elapsedTime / (1<<30);
 		upLinkEffecBandwidth[i] = upLinkDataSize[i] / elapsedTime / (1<<30);
 		linkEffecBandwidth[i] = downLinkEffecBandwidth[i] + upLinkEffecBandwidth[i];
-		linkEffecBandwidthSum += linkEffecBandwidth[i];
+		linkDataSize[i] = downLinkDataSize[i] + upLinkDataSize[i];
+		dataSize += linkDataSize[i];
 	}
 	
 	//Link low power statistic
@@ -774,9 +776,7 @@ void CasHMCWrapper::PrintEpochStatistic()
 	
 	STATE("        HMC bandwidth : "<<ALI(7)<<hmcBandwidth<<" GB/s  (Considered only data size)");
 	STATE("       Link bandwidth : "<<ALI(7)<<linkBandwidthSum<<" GB/s  (Included flow packet)");
-	STATE(" Effec Link bandwidth : "<<ALI(7)<<linkEffecBandwidthSum<<" GB/s  (Data bandwidth regardless of packet header and tail)");
-	STATE("     Link utilization : "<<ALI(7)<<linkBandwidthSum/(linkBandwidthMax*NUM_LINKS*2)*100
-				<<" %     (Link max bandwidth : "<<linkBandwidthMax*NUM_LINKS*2<<" GB/S)"<<endl);
+	STATE("     Transmitted data : "<<ALI(7)<<(double)dataSize/pow(2,20)<<" MB ("<<dataSize<<" B)"<<endl);
 	
 	if(LINK_POWER != NO_MANAGEMENT) {
 		STATE("     Sleep mode ratio : "<<ALI(7)<<SleepModeAve<<" %");
@@ -813,25 +813,29 @@ void CasHMCWrapper::PrintEpochStatistic()
 	
 	for(int i=0; i<NUM_LINKS; i++) {
 		STATE("  ----------------------  [Link "<<i<<"]");
-		STATE("  |              Read per link : "<<readPerLink[i]);
-		STATE("  |             Write per link : "<<writePerLink[i]);
-		STATE("  |            Atomic per link : "<<atomicPerLink[i]);
-		STATE("  |           Request per link : "<<reqPerLink[i]);
-		STATE("  |          Response per link : "<<resPerLink[i]);
-		STATE("  |              Flow per link : "<<flowPerLink[i]);
-		STATE("  |       Error abort per link : "<<errorPerLink[i]);
+		STATE("  |               Read per link : "<<readPerLink[i]);
+		STATE("  |              Write per link : "<<writePerLink[i]);
+		STATE("  |             Atomic per link : "<<atomicPerLink[i]);
+		STATE("  |            Request per link : "<<reqPerLink[i]);
+		STATE("  |           Response per link : "<<resPerLink[i]);
+		STATE("  |               Flow per link : "<<flowPerLink[i]);
+		STATE("  |        Error abort per link : "<<errorPerLink[i]);
 		if(LINK_POWER != NO_MANAGEMENT) {
-			STATE("  |           Sleep mode ratio : "<<linkSleepMode[i]<<" %");
-			STATE("  |            Down mode ratio : "<<linkDownMode[i]<<" %");
-			STATE("  | Total low power mode ratio : "<<linkSleepMode[i]+linkDownMode[i]<<" %");
+			STATE("  |            Sleep mode ratio : "<<linkSleepMode[i]<<" %");
+			STATE("  |             Down mode ratio : "<<linkDownMode[i]<<" %");
+			STATE("  |  Total low power mode ratio : "<<linkSleepMode[i]+linkDownMode[i]<<" %");
 		}
-		STATE("  |       Downstream Bandwidth : "<<ALI(7)<<downLinkBandwidth[i]<<" GB/s  (Utilization : "<<downLinkBandwidth[i]/linkBandwidthMax*100<<" %)");
-		STATE("  |         Upstream Bandwidth : "<<ALI(7)<<upLinkBandwidth[i]<<" GB/s  (Utilization : "<<upLinkBandwidth[i]/linkBandwidthMax*100<<" %)");
-		STATE("  |            Total Bandwidth : "<<ALI(7)<<linkBandwidth[i]<<" GB/s  (Utilization : "<<linkBandwidth[i]/(linkBandwidthMax*2)*100<<" %)");
-		STATE("  | Downstream effec Bandwidth : "<<ALI(7)<<downLinkEffecBandwidth[i]<<" GB/s");
-		STATE("  |   Upstream effec Bandwidth : "<<ALI(7)<<upLinkEffecBandwidth[i]<<" GB/s");
-		STATE("  ------ Total effec Bandwidth : "<<ALI(7)<<linkEffecBandwidth[i]<<" GB/s"<<endl);
+		STATE("  |        Downstream Bandwidth : "<<ALI(7)<<downLinkBandwidth[i]<<" GB/s");
+		STATE("  |          Upstream Bandwidth : "<<ALI(7)<<upLinkBandwidth[i]<<" GB/s");
+		STATE("  |             Total Bandwidth : "<<ALI(7)<<linkBandwidth[i]<<" GB/s");
+		STATE("  |  Downstream effec Bandwidth : "<<ALI(7)<<downLinkEffecBandwidth[i]<<" GB/s");
+		STATE("  |    Upstream effec Bandwidth : "<<ALI(7)<<upLinkEffecBandwidth[i]<<" GB/s");
+		STATE("  |       Total effec Bandwidth : "<<ALI(7)<<linkEffecBandwidth[i]<<" GB/s");
+		STATE("  | Downstream transmitted data : "<<ALI(7)<<(double)downLinkDataSize[i]/pow(2,20)<<" MB ("<<downLinkDataSize[i]<<" B)");
+		STATE("  |   Upstream transmitted data : "<<ALI(7)<<(double)upLinkDataSize[i]/pow(2,20)<<" MB ("<<upLinkDataSize[i]<<" B)");
+		STATE("  -----  Total transmitted data : "<<ALI(7)<<(double)linkDataSize[i]/pow(2,20)<<" MB ("<<linkDataSize[i]<<" B)"<<endl);
 	}
+	STATE("  * Effec bandwidth takes data transmission into account regardless of packet header and tail");
 
 	//One epoch simulation statistic results are accumulated
 	totalTranCount += tranCount;
@@ -883,10 +887,12 @@ void CasHMCWrapper::PrintEpochStatistic()
 	totalVaultStdSum += vaultStdSum;
 	totalErrorStdSum += errorStdSum;
 
-	hmcTransmitSizeTemp = 0;
-	for(int i=0; i<NUM_LINKS; i++) {
-		downLinkDataSizeTemp[i] = 0;
-		upLinkDataSizeTemp[i] = 0;
+	if(BANDWIDTH_PLOT) {
+		hmcTransmitSizeTemp = 0;
+		for(int i=0; i<NUM_LINKS; i++) {
+			downLinkDataSizeTemp[i] = 0;
+			upLinkDataSizeTemp[i] = 0;
+		}
 	}
 }
 
@@ -915,7 +921,8 @@ void CasHMCWrapper::PrintFinalStatistic()
 	vector<double> downLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkEffecBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkEffecBandwidth = vector<double>(NUM_LINKS, 0);
-	double linkEffecBandwidthSum = 0;
+	vector<uint64_t> totalLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
+	uint64_t totalDataSize = 0;
 	for(int i=0; i<NUM_LINKS; i++) {
 		downLinkBandwidth[i] = totalDownLinkTransmitSize[i] / elapsedTime / (1<<30);
 		upLinkBandwidth[i] = totalUpLinkTransmitSize[i] / elapsedTime / (1<<30);
@@ -925,7 +932,8 @@ void CasHMCWrapper::PrintFinalStatistic()
 		downLinkEffecBandwidth[i] = totalDownLinkDataSize[i] / elapsedTime / (1<<30);
 		upLinkEffecBandwidth[i] = totalUpLinkDataSize[i] / elapsedTime / (1<<30);
 		linkEffecBandwidth[i] = downLinkEffecBandwidth[i] + upLinkEffecBandwidth[i];
-		linkEffecBandwidthSum += linkEffecBandwidth[i];
+		totalLinkDataSize[i] = totalDownLinkDataSize[i] + totalUpLinkDataSize[i];
+		totalDataSize += totalLinkDataSize[i];
 	}
 	
 	double tranFullMean = (totalTranCount==0 ? 0 : (double)totalTranFullSum/totalTranCount);
@@ -1006,9 +1014,7 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	resultOut<<"        HMC bandwidth : "<<ALI(7)<<hmcBandwidth<<" GB/s  (Considered only data size)"<<endl;
 	resultOut<<"       Link bandwidth : "<<ALI(7)<<linkBandwidthSum<<" GB/s  (Included flow packet)"<<endl;
-	resultOut<<" Effec Link bandwidth : "<<ALI(7)<<linkEffecBandwidthSum<<" GB/s  (Data bandwidth regardless of packet header and tail)"<<endl;
-	resultOut<<"     Link utilization : "<<ALI(7)<<linkBandwidthSum/(linkBandwidthMax*NUM_LINKS*2)*100
-				<<" %     (Max link bandwidth : "<<linkBandwidthMax*NUM_LINKS*2<<" GB/S)"<<endl<<endl;
+	resultOut<<"     Transmitted data : "<<ALI(7)<<(double)totalDataSize/pow(2,20)<<" MB ("<<totalDataSize<<" B)"<<endl<<endl;
 	
 	if(LINK_POWER != NO_MANAGEMENT) {
 		resultOut<<"    Active link power : "<<ALI(7)<<ActPower<<" mW"<<endl;
@@ -1018,6 +1024,9 @@ void CasHMCWrapper::PrintFinalStatistic()
 		resultOut<<"     Sleep mode ratio : "<<ALI(7)<<SleepModeAve<<" %"<<endl;
 		resultOut<<"      Down mode ratio : "<<ALI(7)<<DownModeAve<<" %"<<endl;
 		resultOut<<"Total low-power ratio : "<<ALI(7)<<SleepModeAve+DownModeAve<<" %"<<endl<<endl;
+	}
+	else {
+		resultOut<<"  Total power on link : "<<ALI(7)<<ActPower+SleepPower+DownPower<<" mW"<<endl<<endl;
 	}
 
 	resultOut<<"    Tran latency mean : "<<tranFullMean*CPU_CLK_PERIOD<<" ns"<<endl;
@@ -1049,25 +1058,29 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	for(int i=0; i<NUM_LINKS; i++) {
 		resultOut<<"  ----------------------  [Link "<<i<<"]"<<endl;
-		resultOut<<"  |              Read per link : "<<totalReadPerLink[i]<<endl;
-		resultOut<<"  |             Write per link : "<<totalWritePerLink[i]<<endl;
-		resultOut<<"  |            Atomic per link : "<<totalAtomicPerLink[i]<<endl;
-		resultOut<<"  |           Request per link : "<<totalReqPerLink[i]<<endl;
-		resultOut<<"  |          Response per link : "<<totalResPerLink[i]<<endl;
-		resultOut<<"  |              Flow per link : "<<totalFlowPerLink[i]<<endl;
-		resultOut<<"  |       Error abort per link : "<<totalErrorPerLink[i]<<endl;
+		resultOut<<"  |               Read per link : "<<totalReadPerLink[i]<<endl;
+		resultOut<<"  |              Write per link : "<<totalWritePerLink[i]<<endl;
+		resultOut<<"  |             Atomic per link : "<<totalAtomicPerLink[i]<<endl;
+		resultOut<<"  |            Request per link : "<<totalReqPerLink[i]<<endl;
+		resultOut<<"  |           Response per link : "<<totalResPerLink[i]<<endl;
+		resultOut<<"  |               Flow per link : "<<totalFlowPerLink[i]<<endl;
+		resultOut<<"  |        Error abort per link : "<<totalErrorPerLink[i]<<endl;
 		if(LINK_POWER != NO_MANAGEMENT) {
-			resultOut<<"  |           Sleep mode ratio : "<<linkSleepMode[i]<<" %"<<endl;
-			resultOut<<"  |            Down mode ratio : "<<linkDownMode[i]<<" %"<<endl;
-			resultOut<<"  | Total low power mode ratio : "<<linkSleepMode[i]+linkDownMode[i]<<" %"<<endl;
+			resultOut<<"  |            Sleep mode ratio : "<<linkSleepMode[i]<<" %"<<endl;
+			resultOut<<"  |             Down mode ratio : "<<linkDownMode[i]<<" %"<<endl;
+			resultOut<<"  |  Total low power mode ratio : "<<linkSleepMode[i]+linkDownMode[i]<<" %"<<endl;
 		}
-		resultOut<<"  |       Downstream Bandwidth : "<<ALI(7)<<downLinkBandwidth[i]<<" GB/s  (Utilization : "<<downLinkBandwidth[i]/linkBandwidthMax*100<<" %)"<<endl;
-		resultOut<<"  |         Upstream Bandwidth : "<<ALI(7)<<upLinkBandwidth[i]<<" GB/s  (Utilization : "<<upLinkBandwidth[i]/linkBandwidthMax*100<<" %)"<<endl;
-		resultOut<<"  |            Total Bandwidth : "<<ALI(7)<<linkBandwidth[i]<<" GB/s  (Utilization : "<<linkBandwidth[i]/(linkBandwidthMax*2)*100<<" %)"<<endl;
-		resultOut<<"  | Downstream effec Bandwidth : "<<ALI(7)<<downLinkEffecBandwidth[i]<<" GB/s"<<endl;
-		resultOut<<"  |   Upstream effec Bandwidth : "<<ALI(7)<<upLinkEffecBandwidth[i]<<" GB/s"<<endl;
-		resultOut<<"  ------ Total effec Bandwidth : "<<ALI(7)<<linkEffecBandwidth[i]<<" GB/s"<<endl<<endl;		
+		resultOut<<"  |        Downstream Bandwidth : "<<ALI(7)<<downLinkBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  |          Upstream Bandwidth : "<<ALI(7)<<upLinkBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  |             Total Bandwidth : "<<ALI(7)<<linkBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  |  Downstream effec Bandwidth : "<<ALI(7)<<downLinkEffecBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  |    Upstream effec Bandwidth : "<<ALI(7)<<upLinkEffecBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  |       Total effec Bandwidth : "<<ALI(7)<<linkEffecBandwidth[i]<<" GB/s"<<endl;
+		resultOut<<"  | Downstream transmitted data : "<<ALI(7)<<(double)totalDownLinkDataSize[i]/pow(2,20)<<" MB ("<<totalDownLinkDataSize[i]<<" B)"<<endl;
+		resultOut<<"  |   Upstream transmitted data : "<<ALI(7)<<(double)totalUpLinkDataSize[i]/pow(2,20)<<" MB ("<<totalUpLinkDataSize[i]<<" B)"<<endl;
+		resultOut<<"  -----  Total transmitted data : "<<ALI(7)<<(double)totalLinkDataSize[i]/pow(2,20)<<" MB ("<<totalLinkDataSize[i]<<" B)"<<endl<<endl;
 	}
+	resultOut<<"  * Effec bandwidth takes data transmission into account regardless of packet header and tail"<<endl;
 }
 
 } //namespace CasHMC

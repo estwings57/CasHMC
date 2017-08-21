@@ -1,7 +1,7 @@
 ****************************************************************
 *                      CasHMC version 1.3                      *
 *                       setting log file                       *
-*            Date : 2017/07/10      Time : 16:05:04            *
+*            Date : 2017/08/21      Time : 13:50:15            *
 ****************************************************************
 
         ==== Memory transaction setting ====
@@ -23,7 +23,7 @@
       Time to calculate CRC [clk] : 0.01
        The number of IRTRY packet : 2
               Retry attempt limit : 2
-       Link BER (the power of 10) : -10
+       Link BER (the power of 10) : -14
              Link priority scheme : 0
             Link power management : 0
 
