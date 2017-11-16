@@ -24,12 +24,13 @@ HMCController::HMCController(ofstream &debugOut_, ofstream &stateOut_):
 	header = " (HC)";
 	
 	inServiceLink = -1;
+	maxLinkBand = LINK_WIDTH * LINK_SPEED / 8;
 	linkEpochCycle = ceil((double)LINK_EPOCH*1000000/CPU_CLK_PERIOD);
 	requestAccLNG = 0;
 	responseAccLNG = 0;
 	sleepLink = 0;
-	sleepLinkSatCNT = 0;
-	tmpSatCNT = 0;
+	alloMSHR = 0;
+	accuMSHR = 0;
 	returnTransCnt = 0;
 	quiesceClk = ceil((double)tQUIESCE/CPU_CLK_PERIOD);
 	staggerSleep = 0;
@@ -117,6 +118,9 @@ void HMCController::Update()
 {
 	//Link wakes up from low power mode
 	LinkPowerExitManager();
+	
+	//accumulate the allocated MSHR size
+	accuMSHR += alloMSHR;
 	
 	//Downstream buffer state
 	if(bufPopDelay==0 && downBuffers.size() > 0) {
@@ -429,8 +433,9 @@ void HMCController::LinkPowerEntryManager()
 			}
 			break;
 		}
-		case BANDWIDTH_AWARE:
-		case BANDWIDTH_SAT_CNT:{
+		case MSHR:
+		case LINK_MONITOR:
+		case AUTONOMOUS:{
 			//Transition links to sleep mode as many as sleepLink
 			for(int l=3; l>=NUM_LINKS-sleepLink; l--) {
 				if(downLinkMasters[l]->currentState == ACTIVE) {
@@ -496,31 +501,54 @@ void HMCController::LinkPowerStateManager()
 		case QUIESCE_SLEEP:{
 			break;
 		}
-		case BANDWIDTH_AWARE:{
+		case MSHR:{
 			linkEpochCycle--;
 			//control the number of active link in every one epoch
 			if(linkEpochCycle == 0) {
-				unsigned sleepLinkTemp = sleepLink;
-				//( ( total FLIT length * 16 bytes) / one epoch time ) * 1000 ms / 1000000000 B = [GB/s]
-				double epochDownBandwidth = BAND_SCALING*((requestAccLNG*16)/LINK_EPOCH)/1000000;
-				double epochUpBandwidth = BAND_SCALING*((responseAccLNG*16)/LINK_EPOCH)/1000000;
-				//The maximum of one-way link bandwidth of 4 links : 240 GB/s
-				if(epochDownBandwidth >= 180 || epochUpBandwidth >= 180 ) {
+				//The average allocated MSHR size
+				double aveMSHR = accuMSHR/((double)LINK_EPOCH*1000000/CPU_CLK_PERIOD);
+				aveMSHR *= MSHR_SCALING;
+				
+				if(aveMSHR >= 4) {
 					sleepLink = 0;
 				}
-				else if(epochDownBandwidth >= 120 || epochUpBandwidth >= 120 ) {
+				else if(aveMSHR >= 3) {
 					sleepLink = 1;
 				}
-				else if(epochDownBandwidth >= 60 || epochUpBandwidth >= 60 ) {
+				else if(aveMSHR >= 2) {
 					sleepLink = 2;
 				}
 				else {
 					sleepLink = 3;
 				}
+				DEBUG(ALI(33)<<header<<"Down) epoch average MSHR size : "<<aveMSHR);
 				
-				if(sleepLinkTemp <= sleepLink && downBuffers.size() >= AWAKE_REQ) {
-					sleepLink = (sleepLinkTemp > 0 ? sleepLinkTemp-1 : 0);
+				//link epoch cycle reset
+				accuMSHR = 0;
+				linkEpochCycle = ceil((double)LINK_EPOCH*1000000/CPU_CLK_PERIOD);
+			}
+			break;
+		}
+		case LINK_MONITOR:{
+			linkEpochCycle--;
+			//control the number of active link in every one epoch
+			if(linkEpochCycle == 0) {
+				//( ( total FLIT length * 16 bytes) / one epoch time ) * 1000 ms / 1000000000 B = [GB/s]
+				double epochDownBandwidth = LINK_SCALING*((requestAccLNG*16)/LINK_EPOCH)/1000000;
+				double epochUpBandwidth = LINK_SCALING*((responseAccLNG*16)/LINK_EPOCH)/1000000;
+				if(epochDownBandwidth >= maxLinkBand*3 || epochUpBandwidth >= maxLinkBand*3) {
+					sleepLink = 0;
 				}
+				else if(epochDownBandwidth >= maxLinkBand*2 || epochUpBandwidth >= maxLinkBand*2) {
+					sleepLink = 1;
+				}
+				else if(epochDownBandwidth >= maxLinkBand || epochUpBandwidth >= maxLinkBand) {
+					sleepLink = 2;
+				}
+				else {
+					sleepLink = 3;
+				}
+
 				DEBUG(ALI(33)<<header<<"Down) epoch link BANDWIDTH downstream : "<<epochDownBandwidth<<" GB/s | upstream : "<<epochUpBandwidth<<" GB/s (sleepLink : "<<sleepLink<<")");
 				
 				//packet accumulated length and link epoch cycle reset
@@ -530,58 +558,34 @@ void HMCController::LinkPowerStateManager()
 			}
 			break;
 		}
-		case BANDWIDTH_SAT_CNT:{
+		case AUTONOMOUS:{
 			linkEpochCycle--;
 			//control the number of active link in every one epoch
 			if(linkEpochCycle == 0) {
-				unsigned sleepLinkTemp = sleepLink;
+				//The average MSHR size
+				double aveMSHR = accuMSHR/((double)LINK_EPOCH*1000000/CPU_CLK_PERIOD);
+				aveMSHR *= MSHR_SCALING;
 				//( ( total FLIT length * 16 bytes) / one epoch time ) * 1000 ms / 1000000000 B = [GB/s]
-				double epochDownBandwidth = BAND_SCALING*((requestAccLNG*16)/LINK_EPOCH)/1000000;
-				double epochUpBandwidth = BAND_SCALING*((responseAccLNG*16)/LINK_EPOCH)/1000000;
-				//The maximum of one-way link bandwidth of 4 links : 240 GB/s
-				if(epochDownBandwidth >= 180 || epochUpBandwidth >= 180 ) {
-					if(sleepLink > 0) {
-						sleepLinkSatCNT = (sleepLinkSatCNT > 0 ? sleepLinkSatCNT-1 : 0);
-					}
+				double epochDownBandwidth = LINK_SCALING*((requestAccLNG*16)/LINK_EPOCH)/1000000;
+				double epochUpBandwidth = LINK_SCALING*((responseAccLNG*16)/LINK_EPOCH)/1000000;
+				if(aveMSHR >= 4 || epochDownBandwidth >= maxLinkBand*3 || epochUpBandwidth >= maxLinkBand*3) {
+					sleepLink = 0;
 				}
-				else if(epochDownBandwidth >= 120 || epochUpBandwidth >= 120 ) {
-					if(sleepLink > 1) {
-						sleepLinkSatCNT = (sleepLinkSatCNT > 0 ? sleepLinkSatCNT-1 : 0);
-					}
-					else if(sleepLink < 1) {
-						sleepLinkSatCNT = (sleepLinkSatCNT < 3 ? sleepLinkSatCNT+1 : 3);
-					}
+				else if(aveMSHR >= 3 || epochDownBandwidth >= maxLinkBand*2 || epochUpBandwidth >= maxLinkBand*2) {
+					sleepLink = 1;
 				}
-				else if(epochDownBandwidth >= 60 || epochUpBandwidth >= 60 ) {
-					if(sleepLink > 2) {
-						sleepLinkSatCNT = (sleepLinkSatCNT > 0 ? sleepLinkSatCNT-1 : 0);
-					}
-					else if(sleepLink < 2) {
-						sleepLinkSatCNT = (sleepLinkSatCNT < 3 ? sleepLinkSatCNT+1 : 3);
-					}
+				else if(aveMSHR >= 2 || epochDownBandwidth >= maxLinkBand || epochUpBandwidth >= maxLinkBand) {
+					sleepLink = 2;
 				}
 				else {
-					if(sleepLink < 3) {
-						sleepLinkSatCNT = (sleepLinkSatCNT < 3 ? sleepLinkSatCNT+1 : 3);
-					}
+					sleepLink = 3;
 				}
 				
-				if(tmpSatCNT != sleepLinkSatCNT) {
-					if(sleepLinkSatCNT >= 2) {
-						sleepLink = (sleepLink < 3 ? sleepLink+1 : 3);
-					}
-					else{
-						sleepLink = (sleepLink > 0 ? sleepLink-1 : 0);
-					}
-					tmpSatCNT = sleepLinkSatCNT;
-				}
-				
-				if(sleepLinkTemp <= sleepLink && downBuffers.size() >= AWAKE_REQ) {
-					sleepLink = (sleepLinkTemp > 0 ? sleepLinkTemp-1 : 0);
-				}
+				DEBUG(ALI(33)<<header<<"Down) epoch average MSHR size : "<<aveMSHR);
 				DEBUG(ALI(33)<<header<<"Down) epoch link BANDWIDTH downstream : "<<epochDownBandwidth<<" GB/s | upstream : "<<epochUpBandwidth<<" GB/s (sleepLink : "<<sleepLink<<")");
-				
+
 				//packet accumulated length and link epoch cycle reset
+				accuMSHR = 0;
 				requestAccLNG = 0;
 				responseAccLNG = 0;
 				linkEpochCycle = ceil((double)LINK_EPOCH*1000000/CPU_CLK_PERIOD);
@@ -664,8 +668,9 @@ void HMCController::LinkPowerExitManager()
 			}
 			break;
 		}
-		case BANDWIDTH_AWARE:
-		case BANDWIDTH_SAT_CNT:{
+		case MSHR:
+		case LINK_MONITOR:
+		case AUTONOMOUS:{
 			//awake up links as many as sleepLink
 			for(int l=0; l<NUM_LINKS-sleepLink; l++) {
 				if(downLinkMasters[l]->currentState == SLEEP) {
@@ -717,6 +722,14 @@ void HMCController::LinkPowerExitManager()
 			break;
 		}
 	}
+}
+
+//
+//Update the allocated MSHR size (It's for MSHR and AUTONOMOUS link power management)
+//
+void HMCController::UpdateMSHR(unsigned mshr)
+{
+	alloMSHR = mshr;
 }
 
 //

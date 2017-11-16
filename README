@@ -43,13 +43,14 @@ version CasHMC v1.3 - 2017.07.10
 
   v1.3 (2017.07.10 released)
    - Integrated with gem5 simulator 
-     + Configure parameters loading at the runtime (parameters in ConfigSim.ini and ConfigDRAM.ini files)
-     + Static and dynamic library compilation by Makefile
+     * Configure parameters loading at the runtime (parameters in ConfigSim.ini and ConfigDRAM.ini files)
+     * Static and dynamic library compilation by Makefile
    - Link power consumption simulation is added (configured by link power parameter in ConfigSim.ini file)
    - Support various link power managements
-     + QUIESCE_SLEEP : on the basis of the tQUIESCE that is the time interval to enter link lowe power mode
-     + BANDWIDTH_AWARE : periodically estimate the downstream and upstream link bandwidth, and then decide the number of active links
-     + BANDWIDTH_SAT_CNT : BANDWIDTH_AWARE with 2-bit saturating counter predictor
+     * QUIESCE_SLEEP : on the basis of the tQUIESCE that is the time interval to enter link lowe power mode
+     * MSHR : the number of active links is decided by the number of the allocated MSHR
+     * LINK_MONITOR : the number of active links is decided by the derived downstream and upstream link bandwidth
+     * AUTONOMOUS : MSHR and LINK_MONITOR together
    - Minor revision
 
 

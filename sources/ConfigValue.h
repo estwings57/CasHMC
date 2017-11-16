@@ -53,8 +53,9 @@ enum LINK_POWER_MANAGEMENT			//Link power state management
 {
 	NO_MANAGEMENT,
 	QUIESCE_SLEEP,
-	BANDWIDTH_AWARE,
-	BANDWIDTH_SAT_CNT
+	MSHR,
+	LINK_MONITOR,
+	AUTONOMOUS
 };
 
 enum MAPPING_SCHEME
@@ -98,7 +99,8 @@ extern LINK_PRIORITY_SCHEME LINK_PRIORITY;
 extern LINK_POWER_MANAGEMENT LINK_POWER;
 extern int AWAKE_REQ;
 extern double LINK_EPOCH;
-extern double BAND_SCALING;
+extern double MSHR_SCALING;
+extern double LINK_SCALING;
 
 extern double PowPerLane;
 extern double SleepPow;

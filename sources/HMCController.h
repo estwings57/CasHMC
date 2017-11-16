@@ -44,6 +44,7 @@ public:
 	void LinkPowerEntryManager();
 	void LinkPowerStateManager();
 	void LinkPowerExitManager();
+	void UpdateMSHR(unsigned mshr);
 	void LinkStatistic();
 	void PrintState();
 	
@@ -54,12 +55,13 @@ public:
 	vector<LinkSlave *> upLinkSlaves;
 	int inServiceLink;
 	
+	unsigned maxLinkBand;
 	unsigned linkEpochCycle;
 	uint64_t requestAccLNG;
 	uint64_t responseAccLNG;
 	unsigned sleepLink;
-	int sleepLinkSatCNT;
-	int tmpSatCNT;
+	unsigned alloMSHR;
+	uint64_t accuMSHR;
 	
 	unsigned returnTransCnt;
 	unsigned quiesceClk;

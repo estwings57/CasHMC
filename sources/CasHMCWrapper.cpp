@@ -286,6 +286,14 @@ bool CasHMCWrapper::CanAcceptTran(void)
 }
 
 //
+//Update the allocated MSHR size (It's for MSHR and AUTONOMOUS link power management)
+//
+void CasHMCWrapper::UpdateMSHR(unsigned mshr)
+{
+	hmcCont->UpdateMSHR(mshr);;
+}
+
+//
 //Updates the state of HMC Wrapper
 //
 void CasHMCWrapper::Update()
@@ -555,13 +563,43 @@ void CasHMCWrapper::PrintSetting(struct tm t)
 	settingOut<<ALI(36)<<" The number of IRTRY packet : "<<NUM_OF_IRTRY<<endl;
 	settingOut<<ALI(36)<<" Retry attempt limit : "<<RETRY_ATTEMPT_LIMIT<<endl;
 	settingOut<<ALI(36)<<" Link BER (the power of 10) : "<<LINK_BER<<endl;
-	settingOut<<ALI(36)<<" Link priority scheme : "<<LINK_PRIORITY<<endl;
-	settingOut<<ALI(36)<<" Link power management : "<<LINK_POWER<<endl;
+	switch(LINK_PRIORITY) {
+	case ROUND_ROBIN:
+		settingOut<<ALI(36)<<" Link priority scheme : "<<"ROUND_ROBIN"<<endl;
+		break;
+	case BUFFER_AWARE:
+		settingOut<<ALI(36)<<" Link priority scheme : "<<"BUFFER_AWARE"<<endl;
+		break;
+	default:
+		settingOut<<ALI(36)<<" Link priority scheme : "<<LINK_PRIORITY<<endl;
+		break;
+	}
+	switch(LINK_POWER) {
+	case NO_MANAGEMENT:
+		settingOut<<ALI(36)<<" Link power management : "<<"NO_MANAGEMENT"<<endl;
+		break;
+	case QUIESCE_SLEEP:
+		settingOut<<ALI(36)<<" Link power management : "<<"QUIESCE_SLEEP"<<endl;
+		break;
+	case MSHR:
+		settingOut<<ALI(36)<<" Link power management : "<<"MSHR"<<endl;
+		break;
+	case LINK_MONITOR:
+		settingOut<<ALI(36)<<" Link power management : "<<"LINK_MONITOR"<<endl;
+		break;
+	case AUTONOMOUS:
+		settingOut<<ALI(36)<<" Link power management : "<<"AUTONOMOUS"<<endl;
+		break;
+	default:
+		settingOut<<ALI(36)<<" Link power management : "<<LINK_POWER<<endl;
+		break;
+	}
 	if(LINK_POWER != NO_MANAGEMENT) {
 		settingOut<<ALI(36)<<" Rreqeust num to awake : "<<AWAKE_REQ<<endl;
 		settingOut<<ALI(36)<<" tQUIESCE : "<<tQUIESCE<<endl;
-		settingOut<<ALI(36)<<" One epoch for BANDWIDTH_AWARE : "<<LINK_EPOCH<<endl;
-		settingOut<<ALI(36)<<" Scaling factor of bandwidth : "<<BAND_SCALING<<endl;
+		settingOut<<ALI(36)<<" One epoch for link management : "<<LINK_EPOCH<<endl;
+		settingOut<<ALI(36)<<" Scaling factor of MSHR : "<<MSHR_SCALING<<endl;
+		settingOut<<ALI(36)<<" Scaling factor of link monitor : "<<LINK_SCALING<<endl;
 	}
 	
 	settingOut<<endl<<"              ==== DRAM general setting ===="<<endl;
@@ -573,7 +611,7 @@ void CasHMCWrapper::PrintSetting(struct tm t)
 	settingOut<<ALI(36)<<" Address mapping (Max block size) : "<<ADDRESS_MAPPING<<endl;
 	settingOut<<ALI(36)<<" Vault controller max buffer size : "<<MAX_VLT_BUF<<endl;
 	settingOut<<ALI(36)<<" Command queue max size : "<<MAX_CMD_QUE<<endl;
-	settingOut<<ALI(36)<<" Command queue structure : "<<(QUE_PER_BANK ? "Bank-level command queue (Bank-Level parallelism)" 														: "Vault-level command queue (Non bank-Level parallelism)")<<endl;
+	settingOut<<ALI(36)<<" Command queue structure : "<<(QUE_PER_BANK ? "Bank-level command queue (Bank-Level parallelism)" : "Vault-level command queue (Non bank-Level parallelism)")<<endl;
 	settingOut<<ALI(36)<<" Memory scheduling : "<<(OPEN_PAGE ? "open page policy" : "close page policy" )<<endl;
 	settingOut<<ALI(36)<<" The maximum row buffer accesses : "<<MAX_ROW_ACCESSES<<endl;
 	settingOut<<ALI(36)<<" Power-down mode : "<<(USE_LOW_POWER ? "Enable" : "Disable")<<endl;
@@ -731,7 +769,6 @@ void CasHMCWrapper::PrintEpochStatistic()
 	//Bandwidth calculation
 	double elapsedTime = (double)(elapsedCycles*CPU_CLK_PERIOD*1E-9);
 	double hmcBandwidth = hmcTransmitSize/elapsedTime/(1<<30);
-	double linkBandwidthMax = LINK_SPEED * LINK_WIDTH / 8;
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
@@ -911,7 +948,6 @@ void CasHMCWrapper::PrintFinalStatistic()
 	
 	double elapsedTime = (double)(currentClockCycle*CPU_CLK_PERIOD*1E-9);
 	double hmcBandwidth = totalHmcTransmitSize/elapsedTime/(1<<30);
-	double linkBandwidthMax = LINK_SPEED * LINK_WIDTH / 8;
 	vector<double> downLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> upLinkBandwidth = vector<double>(NUM_LINKS, 0);
 	vector<double> linkBandwidth = vector<double>(NUM_LINKS, 0);
@@ -979,9 +1015,11 @@ void CasHMCWrapper::PrintFinalStatistic()
 	double ActPowPerSec = (double)PowPerLane*LINK_SPEED;
 	double SlpPowPerSec = (double)PowPerLane*LINK_SPEED*SleepPow/100;
 	double DwnPowPerSec = (double)PowPerLane*LINK_SPEED*DownPow/100;
-	double ActPower = ((double)ActModeTotal*CPU_CLK_PERIOD*1E-9)*ActPowPerSec;
-	double SleepPower = ((double)SleepModeTotal*CPU_CLK_PERIOD*1E-9)*SlpPowPerSec;
-	double DownPower = ((double)DownModeTotal*CPU_CLK_PERIOD*1E-9)*DwnPowPerSec;
+	
+	double ActPower = (double)ActModeTotal*ActPowPerSec/currentClockCycle;
+	double SleepPower = (double)SleepModeTotal*SlpPowPerSec/currentClockCycle;
+	double DownPower = (double)DownModeTotal*DwnPowPerSec/currentClockCycle;
+
 	SleepModeAve /= NUM_LINKS;
 	DownModeAve /= NUM_LINKS;
 

@@ -47,6 +47,7 @@ public:
 	bool ReceiveTran(TransactionType tranType, uint64_t addr, unsigned size);
 	bool ReceiveTran(Transaction *tran);
 	bool CanAcceptTran();
+	void UpdateMSHR(unsigned mshr);
 	void Update();
 	void DownLinkUpdate(bool lastUpdate);
 	void UpLinkUpdate(bool lastUpdate);
