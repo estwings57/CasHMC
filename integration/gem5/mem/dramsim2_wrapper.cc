@@ -44,7 +44,7 @@
 #include <fstream>
 
 #include "base/compiler.hh"
-#include "base/misc.hh"
+#include "base/logging.hh"
 
 DRAMSim2Wrapper::DRAMSim2Wrapper(const std::string& configSim_file,
                                  const std::string& configDRAM_file,
