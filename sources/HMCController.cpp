@@ -437,7 +437,7 @@ void HMCController::LinkPowerEntryManager()
 		case LINK_MONITOR:
 		case AUTONOMOUS:{
 			//Transition links to sleep mode as many as sleepLink
-			for(int l=3; l>=NUM_LINKS-sleepLink; l--) {
+			for(int l=NUM_LINKS - 1; l>=NUM_LINKS-sleepLink; l--) {
 				if(downLinkMasters[l]->currentState == ACTIVE) {
 					//The condition to enter sleep mode
 					if(downLinkMasters[l]->Buffers.size() == 0
