@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -34,7 +34,7 @@ VaultController::VaultController(ofstream &debugOut_, ofstream &stateOut_, unsig
 	dataCyclesLeft = 0;
 	
 	//Make class objects
-	commandQueue = new CommandQueue(debugOut, stateOut, this, vaultContID);
+	commandQueue = new CommandQueue(debugOut, stateOut, vaultContID, this);
 }
 
 VaultController::~VaultController()
@@ -96,7 +96,7 @@ void VaultController::ReturnCommand(DRAMCommand *retCMD)
 				if(retCMD->atomic) {
 					atomicCMD = retCMD;
 					atomicOperLeft = 1;
-					DE_CR(ALI(18)<<header<<ALI(15)<<*retCMD<<"Up)   RETURNING ATOMIC read data");
+					DE_CR(ALI(18)<<header<<ALI(15)<<*atomicCMD<<"Up)   RETURNING ATOMIC read data");
 				}
 				else {
 					MakeRespondPacket(retCMD);
@@ -155,6 +155,7 @@ void VaultController::MakeRespondPacket(DRAMCommand *retCMD)
 			exit(0);
 		}
 	}
+	ReverseAddressMapping(newPacket->ADRS, retCMD->bank, retCMD->column, retCMD->row);
 	newPacket->segment = retCMD->segment;
 	ReceiveUp(newPacket);
 }
@@ -315,8 +316,8 @@ void VaultController::UpdateCountdown()
 					MakeRespondPacket(dataBus);
 				}
 				else if(dataBus->trace != NULL && dataBus->posted) {
-					dataBus->trace->tranFullLat = ceil(currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->tranTransmitTime;
-					dataBus->trace->linkFullLat = ceil(currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->linkTransmitTime;
+					dataBus->trace->tranFullLat = ceil((double)currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->tranTransmitTime;
+					dataBus->trace->linkFullLat = ceil((double)currentClockCycle * (double)tCK/CPU_CLK_PERIOD) - dataBus->trace->linkTransmitTime;
 					dataBus->trace->vaultFullLat = currentClockCycle - dataBus->trace->vaultIssueTime;
 					delete dataBus->trace;
 				}
@@ -489,6 +490,26 @@ void VaultController::AddressMapping(uint64_t physicalAddress, unsigned &bankAdd
 	
 	//Extract row address
 	rowAdd = physicalAddress & (NUM_ROWS-1);
+}
+
+//
+//Restore physical address from bank, column, and row
+//
+void VaultController::ReverseAddressMapping(uint64_t &physicalAddress, unsigned bankAdd, unsigned colAdd, unsigned rowAdd)
+{
+	unsigned maxBlockBit = _log2(ADDRESS_MAPPING);
+	
+	physicalAddress = rowAdd;
+	physicalAddress <<= (_log2(NUM_COLS)-maxBlockBit);
+	physicalAddress += (colAdd>>maxBlockBit);
+	
+	physicalAddress <<= _log2(NUM_BANKS);
+	physicalAddress += bankAdd;
+	
+	physicalAddress <<= _log2(NUM_VAULTS);
+	physicalAddress += vaultContID;
+	
+	physicalAddress <<= maxBlockBit;
 }
 
 //

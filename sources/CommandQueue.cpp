@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -15,10 +15,10 @@
 namespace CasHMC
 {
 
-CommandQueue::CommandQueue(ofstream &debugOut_, ofstream &stateOut_, VaultController *parent, unsigned id):
+CommandQueue::CommandQueue(ofstream &debugOut_, ofstream &stateOut_, unsigned id, VaultController *parent):
 	SimulatorObject(debugOut_, stateOut_),
-	vaultContP(parent),
-	cmdQueID(id)
+	cmdQueID(id),
+	vaultContP(parent)
 {
 	classID << cmdQueID;
 	header = "        (CQ_" + classID.str();
@@ -213,12 +213,14 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 						for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
 							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
 								//Check to make sure not removing a read/write that is paired with an activate
-								if(i>0 && ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
+								if(i>0
+								&& ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
 								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
 									continue;
 								
 								if(ACCESSQUE(issuedBank)[i]->atomic
-								&& (ACCESSQUE(issuedBank)[i]->packetCMD != EQ16 && ACCESSQUE(issuedBank)[i]->packetCMD != EQ8)) {
+								&& (ACCESSQUE(issuedBank)[i]->packetCMD != EQ16
+								&& ACCESSQUE(issuedBank)[i]->packetCMD != EQ8)) {
 									atomicLock[ACCESSQUE(issuedBank)[i]->bank] = true;
 									atomicLockTag[ACCESSQUE(issuedBank)[i]->bank] = ACCESSQUE(issuedBank)[i]->packetTAG;
 								}
@@ -346,9 +348,9 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 								bool dependencyFound = false;
 								for(j=0; j<i; j++) {
 									DRAMCommand *prevCMD = ACCESSQUE(issuedBank)[j];
-									if(prevCMD->commandType != ACTIVATE &&
-									prevCMD->bank == ACCESSQUE(issuedBank)[i]->bank &&
-									prevCMD->row == ACCESSQUE(issuedBank)[i]->row) {
+									if(prevCMD->commandType != ACTIVATE
+									&& prevCMD->bank == ACCESSQUE(issuedBank)[i]->bank
+									&& prevCMD->row == ACCESSQUE(issuedBank)[i]->row) {
 										dependencyFound = true;
 										break;
 									}

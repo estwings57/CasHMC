@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -18,8 +18,7 @@
 #include <iostream> 	//ostream
 #include <stdint.h>		//uint64_t
 
-#include "SimConfig.h"
-#include "DRAMConfig.h"
+#include "ConfigValue.h"
 
 using namespace std;
 
@@ -30,32 +29,32 @@ class TranStatistic
 {
 public:
 	TranStatistic() {
-		readPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		writePerLink = vector<uint64_t>(NUM_LINKS, 0);
-		atomicPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		reqPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		resPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		flowPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		errorPerLink = vector<unsigned>(NUM_LINKS, 0);
-		retryFailPerLink = vector<unsigned>(NUM_LINKS, 0);
+		readPerLink = vector<uint64_t>(1, 0);
+		writePerLink = vector<uint64_t>(1, 0);
+		atomicPerLink = vector<uint64_t>(1, 0);
+		reqPerLink = vector<uint64_t>(1, 0);
+		resPerLink = vector<uint64_t>(1, 0);
+		flowPerLink = vector<uint64_t>(1, 0);
+		errorPerLink = vector<unsigned>(1, 0);
+		retryFailPerLink = vector<unsigned>(1, 0);
 		
 		hmcTransmitSize = 0;
-		downLinkTransmitSize = vector<uint64_t>(NUM_LINKS, 0);
-		upLinkTransmitSize = vector<uint64_t>(NUM_LINKS, 0);
-		downLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
-		upLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
+		downLinkTransmitSize = vector<uint64_t>(1, 0);
+		upLinkTransmitSize = vector<uint64_t>(1, 0);
+		downLinkDataSize = vector<uint64_t>(1, 0);
+		upLinkDataSize = vector<uint64_t>(1, 0);
 		
 		tranFullSum = 0;	linkFullSum = 0;	vaultFullSum = 0;	errorRetrySum = 0;
 		totalTranCount = 0;		totalErrorCount = 0;
 		totalTranFullSum = 0;	totalLinkFullSum = 0;	totalVaultFullSum = 0;	totalErrorRetrySum = 0;
 		
-		totalReadPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalWritePerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalAtomicPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalReqPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalResPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalFlowPerLink = vector<uint64_t>(NUM_LINKS, 0);
-		totalErrorPerLink = vector<unsigned>(NUM_LINKS, 0);
+		totalReadPerLink = vector<uint64_t>(1, 0);
+		totalWritePerLink = vector<uint64_t>(1, 0);
+		totalAtomicPerLink = vector<uint64_t>(1, 0);
+		totalReqPerLink = vector<uint64_t>(1, 0);
+		totalResPerLink = vector<uint64_t>(1, 0);
+		totalFlowPerLink = vector<uint64_t>(1, 0);
+		totalErrorPerLink = vector<unsigned>(1, 0);
 		
 		totalTranFullMax = 0;	totalTranFullMin = -1;
 		totalLinkFullMax = 0;	totalLinkFullMin = -1;
@@ -64,16 +63,46 @@ public:
 		totalTranStdSum = 0;	totalLinkStdSum = 0;	totalVaultStdSum = 0;	totalErrorStdSum = 0;
 		
 		totalHmcTransmitSize = 0;
-		totalDownLinkTransmitSize = vector<uint64_t>(NUM_LINKS, 0);
-		totalUpLinkTransmitSize = vector<uint64_t>(NUM_LINKS, 0);
-		totalDownLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
-		totalUpLinkDataSize = vector<uint64_t>(NUM_LINKS, 0);
+		totalDownLinkTransmitSize = vector<uint64_t>(1, 0);
+		totalUpLinkTransmitSize = vector<uint64_t>(1, 0);
+		totalDownLinkDataSize = vector<uint64_t>(1, 0);
+		totalUpLinkDataSize = vector<uint64_t>(1, 0);
 	}
-	~TranStatistic() {
+	virtual ~TranStatistic() {
 		tranFullLat.clear();
 		linkFullLat.clear();
 		vaultFullLat.clear();
 		errorRetryLat.clear();
+	}
+	void PushStatisPerLink() {
+		for(int i=0; i<NUM_LINKS; i++) {
+			readPerLink.push_back(0);
+			writePerLink.push_back(0);
+			atomicPerLink.push_back(0);
+			reqPerLink.push_back(0);
+			resPerLink.push_back(0);
+			flowPerLink.push_back(0);
+			errorPerLink.push_back(0);
+			retryFailPerLink.push_back(0);
+			
+			downLinkTransmitSize.push_back(0);
+			upLinkTransmitSize.push_back(0);
+			downLinkDataSize.push_back(0);
+			upLinkDataSize.push_back(0);
+			
+			totalReadPerLink.push_back(0);
+			totalWritePerLink.push_back(0);
+			totalAtomicPerLink.push_back(0);
+			totalReqPerLink.push_back(0);
+			totalResPerLink.push_back(0);
+			totalFlowPerLink.push_back(0);
+			totalErrorPerLink.push_back(0);
+
+			totalDownLinkTransmitSize.push_back(0);
+			totalUpLinkTransmitSize.push_back(0);
+			totalDownLinkDataSize.push_back(0);
+			totalUpLinkDataSize.push_back(0);
+		}		
 	}
 	void UpdateStatis(unsigned tranFull, unsigned linkFull, unsigned vaultFull) {
 		tranFullLat.push_back(tranFull);

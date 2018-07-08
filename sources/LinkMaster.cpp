@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -37,6 +37,8 @@ LinkMaster::LinkMaster(ofstream &debugOut_, ofstream &stateOut_, unsigned id, bo
 	retryAttempts = 1;
 	retBufReadP = 0;
 	retBufWriteP = 0;
+	retrainTransit = 0;
+	firstNull = true;
 	
 	retryBuffers = vector<Packet *>(MAX_RETRY_BUF, NULL);
 }
@@ -265,7 +267,7 @@ void LinkMaster::LinkRetry(Packet *packet)
 void LinkMaster::FinishRetry()
 {
 	DEBUG(ALI(33)<<header<<(downstream ? "Down) " : "Up)   ")<<"RETRY sequence is finished");
-	currentState = NORMAL;
+	currentState = ACTIVE;
 	header.erase(header.find(")"));
 	header += ")";
 	delete retryStartPacket;
@@ -340,7 +342,7 @@ void LinkMaster::Update()
 			}
 		}
 		else {
-			currentState = NORMAL;
+			currentState = ACTIVE;
 			header.erase(header.find(")"));
 			header += ")";
 		}
@@ -364,6 +366,24 @@ void LinkMaster::Update()
 		}
 	}
 	
+	//Requester/Responder issue continuous scrambled NULL packet and TS1 training sequence for link retraining
+	if(currentState == RETRAIN1 && currentClockCycle >= retrainTransit && firstNull) {
+		//Upon descrambler sync, the responder will begin to transmit scrambled NULL packet
+		Packet *packetNULL = new Packet(FLOW, NULL_, 0, 0, 1, NULL);
+		linkRxTx.push_back(packetNULL);
+		DEBUG(ALI(33)<<header<<(downstream ? "Down) " : "Up)   ")<<"issue NULL packet for descrambler initializing");
+		firstNull = false;
+	}
+	//Requester/Responder enters the TS1 state 
+	// and issues the scrambled TS1 training sequence continuously to achieve FLIT synchrony
+	else if(currentState == RETRAIN2 && currentClockCycle >= retrainTransit && firstNull) {
+		//Because TS1 is 16-bit character, we just employ NULL packet instead of TS1
+		Packet *packetTS1 = new Packet(FLOW, NULL_, 0, 0, 1, NULL);
+		linkRxTx.push_back(packetTS1);
+		DEBUG(ALI(33)<<header<<(downstream ? "Down) " : "Up)   ")<<"issue TS1 sequence to achieve FLIT synchrony");
+		firstNull = false;
+	}
+	
 	Step();
 }
 
@@ -374,12 +394,12 @@ void LinkMaster::CRCCountdown(int writeP, Packet *packet)
 {
 	if(CRC_CHECK && !startCRC) {
 		startCRC = true;
-		countdownCRC = ceil(CRC_CAL_CYCLE * packet->LNG);
+		countdownCRC = ceil((double)CRC_CAL_CYCLE * packet->LNG);
 	}
 	
 	if(CRC_CHECK && countdownCRC > 0) {
 		DEBUG(ALI(18)<<header<<ALI(15)<<*packet<<(downstream ? "Down) " : "Up)   ")
-				<<"WAITING CRC calculation ("<<countdownCRC<<"/"<<ceil(CRC_CAL_CYCLE*packet->LNG)<<")");
+				<<"WAITING CRC calculation ("<<countdownCRC<<"/"<<ceil((double)CRC_CAL_CYCLE*packet->LNG)<<")");
 	}
 	else {
 		UpdateField(writeP, packet);
@@ -432,12 +452,40 @@ void LinkMaster::UpdateField(int nextWriteP, Packet *packet)
 }
 
 //
+//Send a request/response QUITE packet for checking the low power mode 
+//
+void LinkMaster::QuitePacket()
+{
+	//packet, cmd, addr, cub, lng, *lat
+	Packet *packetQUIET = new Packet(FLOW, QUIET, 0, 0, 1, NULL);
+	packetQUIET->RRP = lastestRRP;
+	DEBUG(ALI(18)<<header<<ALI(15)<<*packetQUIET<<(downstream ? "Down) " : "Up)   ")<<"sending QUITE packet");
+	linkRxTx.push_back(packetQUIET);
+}
+
+//
+//Finish link retraining
+//
+void LinkMaster::FinishRetrain()
+{
+	currentState = ACTIVE;
+	//The requester must send a minimum of 32 NULL FLITs before sending the first nonNULL flow packet
+	Packet *packetNULL = NULL;
+	for(int i=0; i<32; i++) {
+		packetNULL = new Packet(FLOW, NULL_, 0, 0, 1, NULL);
+		linkRxTx.push_back(packetNULL);
+	}
+	DEBUG(ALI(18)<<header<<ALI(15)<<*packetNULL<<(downstream ? "Down) " : "Up)   ")
+			<<"sending a minimum of 32 NULL FLITs before entering ACTIVE mode");
+}
+
+//
 //Print current state in state log file
 //
 void LinkMaster::PrintState()
 {
 	if(Buffers.size()>0) {
-		if(currentState == NORMAL) {
+		if(currentState == ACTIVE) {
 			STATEN(ALI(11)<<header<<"tk:"<<ALI(3)<<tokenCount);
 		//	STATEN(ALI(17)<<header);
 		}
@@ -535,15 +583,20 @@ int FindAvailableLink(int &link, vector<LinkMaster *> &LM)
 			unsigned minBufferSize = MAX_LINK_BUF;
 			unsigned minBufferLink = 0;
 			for(int l=0; l<NUM_LINKS; l++) {
-				int bufSizeTemp = LM[l]->Buffers.size();
-				for(int i=0; i<LM[l]->linkRxTx.size(); i++) {
-					if(LM[l]->linkRxTx[i] != NULL) {
-						bufSizeTemp += LM[l]->linkRxTx[i]->LNG;
-					}
+				if(LM[l]->currentState != ACTIVE && LM[l]->currentState != LINK_RETRY) {
+					continue;
 				}
-				if(bufSizeTemp < minBufferSize) {
-					minBufferSize = bufSizeTemp;
-					minBufferLink = l;
+				else {
+					int bufSizeTemp = LM[l]->Buffers.size();
+					for(int i=0; i<LM[l]->linkRxTx.size(); i++) {
+						if(LM[l]->linkRxTx[i] != NULL) {
+							bufSizeTemp += LM[l]->linkRxTx[i]->LNG;
+						}
+					}
+					if(bufSizeTemp < minBufferSize) {
+						minBufferSize = bufSizeTemp;
+						minBufferLink = l;
+					}
 				}
 			}
 			return minBufferLink;

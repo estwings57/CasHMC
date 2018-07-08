@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -27,7 +27,16 @@ namespace CasHMC
 {
 enum LinkState
 {
-	NORMAL,
+	ACTIVE,
+	SLEEP,
+	DOWN,
+	RETRAIN1,
+	RETRAIN2,
+	WAIT,
+	CONFIRM,
+	TRANSITION_TO_RETRAIN,
+	TRANSITION_TO_SLEEP,
+	TRANSITION_TO_DOWN,
 	START_RETRY,
 	LINK_RETRY
 };
@@ -38,10 +47,10 @@ class SingleVectorObject : public SimulatorObject
 public:
 	SingleVectorObject(ofstream &debugOut_, ofstream &stateOut_, int bufMax, bool down):
 			SimulatorObject(debugOut_, stateOut_), bufferMax(bufMax), downstream(down) {
-		currentState = NORMAL;
+		currentState = ACTIVE;
 		Buffers.reserve(bufferMax);
 	}
-	~SingleVectorObject() {
+	virtual ~SingleVectorObject() {
 		Buffers.clear();
 		linkRxTx.clear();
 	}

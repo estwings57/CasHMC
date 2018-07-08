@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -18,7 +18,7 @@
 #include <math.h>		//pow()
 
 #include "SingleVectorObject.h"
-#include "SimConfig.h"
+#include "ConfigValue.h"
 #include "TranStatistic.h"
 #include "Link.h"
 #include "LinkSlave.h"
@@ -27,6 +27,12 @@ using namespace std;
 
 namespace CasHMC
 {
+enum LinkQuite
+{
+	CHECK,
+	QUITE,
+	BUSY
+};
 	
 int FindAvailableLink(int &link, vector<LinkMaster *> &LM);
 	
@@ -49,6 +55,8 @@ public:
 	void Update();
 	void CRCCountdown(int writeP, Packet *packet);
 	void UpdateField(int nextWriteP, Packet *packet);
+	void QuitePacket();
+	void FinishRetrain();
 	void PrintState();
 
 	//
@@ -72,6 +80,8 @@ public:
 	unsigned retryAttempts;
 	unsigned retBufReadP;
 	unsigned retBufWriteP;
+	unsigned retrainTransit;
+	bool firstNull;
 	vector<Packet *> retryBuffers;
 };
 

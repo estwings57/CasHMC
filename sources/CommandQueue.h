@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -17,7 +17,7 @@
 #include <vector>		//vector
 
 #include "SimulatorObject.h"
-#include "DRAMConfig.h"
+#include "ConfigValue.h"
 #include "DRAMCommand.h"
 
 #define ACCESSQUE(b) (QUE_PER_BANK==true ? queue[b] : queue[0])
@@ -36,7 +36,7 @@ public:
 	//
 	//Functions
 	//
-	CommandQueue(ofstream &debugOut_, ofstream &stateOut_, VaultController *parent, unsigned id);
+	CommandQueue(ofstream &debugOut_, ofstream &stateOut_, unsigned id, VaultController *parent);
 	virtual ~CommandQueue();
 	bool AvailableSpace(unsigned bank, unsigned cmdN);
 	void Enqueue(unsigned bank, DRAMCommand *enqCMD);

@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -76,6 +76,44 @@ void LinkSlave::Update()
 		else {
 			for(int i=0; i<linkRxTx.size(); i++) {
 				if(linkRxTx[i]->bufPopDelay == 0) {
+					//Link retraining sequence
+					if(linkRxTx[i]->CMD == NULL_) {
+						//[Responder descrambler initializing]
+						//The responder descrambler sync should occur within tRESP1 of the PLL locking
+						if(downstream && localLinkMaster->currentState == SLEEP) {
+							localLinkMaster->firstNull = true;
+							localLinkMaster->currentState = RETRAIN1;
+							uint64_t tran = ceil((double)(tRESP1)/tCK);
+							localLinkMaster->retrainTransit = currentClockCycle + tran;
+						}
+						//[Requester descrambler synchronization]
+						else if(!downstream && localLinkMaster->currentState == RETRAIN1) {
+							localLinkMaster->firstNull = true;
+							localLinkMaster->currentState = RETRAIN2;
+						}
+						//[Responder FLIT synchrony]
+						//Responder link lock should occur within tRESP2
+						else if(downstream && localLinkMaster->currentState == RETRAIN1) {
+							localLinkMaster->firstNull = true;
+							localLinkMaster->currentState = RETRAIN2;
+							uint64_t tran = ceil((double)(tRESP2)/tCK);
+							localLinkMaster->retrainTransit = currentClockCycle + tran;
+						}
+						//[Requester FLIT synchrony and sending a minimum of 32 NULL FLITs before entering ACTIVE]
+						else if(!downstream && localLinkMaster->currentState == RETRAIN2) {
+							currentState = ACTIVE;
+							localLinkMaster->FinishRetrain();
+						}
+						//[sending a minimum of 32 NULL FLITs before entering ACTIVE]
+						else if(downstream && localLinkMaster->currentState == RETRAIN2) {
+							currentState = ACTIVE;
+							localLinkMaster->FinishRetrain();
+						}
+						delete linkRxTx[i];
+						linkRxTx.erase(linkRxTx.begin()+i);
+						continue;
+					}
+					
 					//Retry control
 					if(linkRxTx[i]->CMD == IRTRY) {
 						if(linkRxTx[i]->bufPopDelay == 0) {
@@ -87,9 +125,10 @@ void LinkSlave::Update()
 								}
 							}
 							else if(linkRxTx[i]->FRP == 2) {
-								if(localLinkMaster->currentState != NORMAL) {
+								if(localLinkMaster->currentState == START_RETRY
+								|| localLinkMaster->currentState == LINK_RETRY) {
 									localLinkMaster->FinishRetry();
-									currentState = NORMAL;
+									currentState = ACTIVE;
 									slaveSEQ = 0;
 								}
 							}
@@ -117,16 +156,35 @@ void LinkSlave::Update()
 						}
 					}
 					
+					//Link low power mode control
+					if(linkRxTx[i]->CMD == QUIET) {
+						//(upstream) all-way links are checked to enter sleep mode
+						if(localLinkMaster->currentState == WAIT) {
+							localLinkMaster->currentState = CONFIRM;
+							DEBUG(ALI(18)<<header<<ALI(15)<<*linkRxTx[i]<<(downstream ? "Down) " : "Up)   ")
+								<<"link is ready to enter LOW POWER mode");
+						}
+						//(downstream) link is checking the link state to enter sleep mode
+						else {
+							currentState = WAIT;
+							DEBUG(ALI(18)<<header<<ALI(15)<<*linkRxTx[i]<<(downstream ? "Down) " : "Up)   ")
+								<<"link is checking the link state to enter sleep mode");
+						}
+						delete linkRxTx[i];
+						linkRxTx.erase(linkRxTx.begin()+i);
+						break;
+					}
+					
 					//Count CRC calculation time
 					if(linkRxTx[i]->chkRRP == true && linkRxTx[i]->chkCRC == false) {
 						if(CRC_CHECK && !startCRC) {
 							startCRC = true;
-							countdownCRC = ceil(CRC_CAL_CYCLE * linkRxTx[i]->LNG);
+							countdownCRC = ceil((double)CRC_CAL_CYCLE * linkRxTx[i]->LNG);
 						}
 							
 						if(CRC_CHECK && countdownCRC > 0) {
 							DEBUG(ALI(18)<<header<<ALI(15)<<*linkRxTx[i]<<(downstream ? "Down) " : "Up)   ")
-									<<"WAITING CRC calculation ("<<countdownCRC<<"/"<<ceil(CRC_CAL_CYCLE*linkRxTx[i]->LNG)<<")");
+									<<"WAITING CRC calculation ("<<countdownCRC<<"/"<<ceil((double)CRC_CAL_CYCLE*linkRxTx[i]->LNG)<<")");
 						}
 						else {
 							//Error check
@@ -173,6 +231,18 @@ void LinkSlave::Update()
 		}
 	}
 	
+	//Checking the link state to enter sleep mode
+	if(currentState == WAIT) {
+		//Link is ready for low power mode
+		if(localLinkMaster->Buffers.size() == 0
+		&& localLinkMaster->retBufReadP == localLinkMaster->retBufWriteP
+		&& localLinkMaster->tokenCount == MAX_LINK_BUF) {
+			currentState = SLEEP;
+			localLinkMaster->currentState = SLEEP;
+			localLinkMaster->QuitePacket();
+		}
+	}
+
 	//Sending packet
 	if(Buffers.size() > 0) {
 		bool chkRcv = (downstream ? downBufferDest->ReceiveDown(Buffers[0]) : upBufferDest->ReceiveUp(Buffers[0]));
@@ -212,6 +282,8 @@ bool LinkSlave::CheckNoError(Packet *chkPacket)
 			else {
 				DE_CR(ALI(18)<<header<<ALI(15)<<*chkPacket<<(downstream ? "Down) " : "Up)   ")
 							<<"= Error abort mode =  (packet SEQ : "<<chkPacket->SEQ<<" / Slave SEQ : "<<tempSEQ<<")");
+				cout<<ALI(18)<<header<<ALI(15)<<*chkPacket<<(downstream ? "Down) " : "Up)   ")
+							<<"= Error abort mode =  (packet SEQ : "<<chkPacket->SEQ<<" / Slave SEQ : "<<tempSEQ<<")"<<endl;
 				return false;
 			}
 		}

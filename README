@@ -1,5 +1,5 @@
 CasHMC: A Cycle-accurate Simulator for Hybrid Memory Cube
-version CasHMC v1.2 - 2016.09.27
+version CasHMC v1.3 - 2017.07.10
 
 1. Developer
 
@@ -30,16 +30,28 @@ version CasHMC v1.2 - 2016.09.27
   v1.0 (2016.05.07 released)
    - Released the 1st CasHMC
    - Modeling HMC architecture and packet-based interface
-   
+
   v1.1 (2016.07.21 released)
    - Support 'atomic commands' refered to HMC specification 2.1 (arithmetic, bitwise, boolean, comparison)
      for more information, check Transaction.h (TransactionType) or RunSim.cpp (line 86)
-	 
+
   v1.2 (2016.09.27 released)
    - Modify vault mapping (CrossbarSwitch) of the packet bigger than the maximum block size
    - Support a new link priority scheme (buffer-aware scheme)
    - Add one cycle delay for an atomic command operation in VaultController class (atomicOperLeft)
    - Minor revision (few mistakes)
+
+  v1.3 (2017.07.10 released)
+   - Integrated with gem5 simulator 
+     * Configure parameters loading at the runtime (parameters in ConfigSim.ini and ConfigDRAM.ini files)
+     * Static and dynamic library compilation by Makefile
+   - Link power consumption simulation is added (configured by link power parameter in ConfigSim.ini file)
+   - Support various link power managements
+     * QUIESCE_SLEEP : on the basis of the tQUIESCE that is the time interval to enter link lowe power mode
+     * MSHR : the number of active links is decided by the number of the allocated MSHR
+     * LINK_MONITOR : the number of active links is decided by the derived downstream and upstream link bandwidth
+     * AUTONOMOUS : MSHR and LINK_MONITOR together
+   - Minor revision
 
 
 4. Getting CasHMC
@@ -90,7 +102,7 @@ version CasHMC v1.2 - 2016.09.27
     #include "Transaction.h"
     ...
 
-      CasHMCWrapper *casHMCWrapper = new CasHMCWrapper();
+      CasHMCWrapper *casHMCWrapper = new CasHMCWrapper("ConfigSim.ini", "ConfigDRAM.ini");
       ...
 
       TransactionType tranType = DATA_READ;
@@ -99,6 +111,15 @@ version CasHMC v1.2 - 2016.09.27
       Transaction *newTran = new Transaction(tranType, addr, dataSize, casHMCWrapper);
       casHMCWrapper->ReceiveTran(newTran);
       ...
+  
+  > Integration with gem5 simulator
+  
+  There is a script file [CasHMC/integration/gem5/integ_CasHMC-gem5.sh] for integrating CasHMC and gem5 
+  Copy this script file to gem5 root directory and then run the script
+  (gem5 download : $ hg clone http://repo.gem5.org/gem5)
+  
+    $ cp -a CasHMC/integration/gem5/integ_CasHMC-gem5.sh $GEM5_DIR
+    $ source $GEM5_DIR/integ_CasHMC-gem5.sh
 
 
 8. Special thanks to

@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -13,16 +13,19 @@
 
 using namespace std;
 
+extern unsigned packetGlobalTAG;
+
 namespace CasHMC
 {
+
 //Request packet
 Packet::Packet(PacketType packet, PacketCommandType cmd, uint64_t addr, unsigned cub, unsigned lng, TranTrace *lat):
+	trace(lat),
 	packetType(packet),
-	CMD(cmd),
-	ADRS(addr),
 	CUB(cub),
 	LNG(lng),
-	trace(lat)
+	CMD(cmd),
+	ADRS(addr)
 {
 	bufPopDelay=1;
 	CRCtable[256]=0;	
@@ -65,11 +68,11 @@ Packet::Packet(PacketType packet, PacketCommandType cmd, uint64_t addr, unsigned
 }
 //Response packet
 Packet::Packet(PacketType packet, PacketCommandType cmd, unsigned tag, unsigned lng, TranTrace *lat):
+	trace(lat),
 	packetType(packet),
-	CMD(cmd),
 	TAG(tag),
 	LNG(lng),
-	trace(lat)
+	CMD(cmd)
 {
 	bufPopDelay=1;
 	CRCtable[256]=0;	
@@ -294,10 +297,13 @@ ostream& operator<<(ostream &out, const Packet &f)
 		case SWAP16:	header = "[P" + id.str() + "-SWAP16]";	break;
 		//Flow Commands
 		case NULL_:		header = "[P" + id.str() + "-NULL]";		break;		case PRET:		header = "[P" + id.str() + "-PRET]";		break;
-		case TRET:		header = "[P" + id.str() + "-TRET]";		break;		
+		case TRET:		header = "[P" + id.str() + "-TRET]";		break;
 		case IRTRY:		if(f.FRP==1)		header = "[P" + id.str() + "-IRTRY1]";
-						else if(f.FRP==2)	header = "[P" + id.str() + "-IRTRY2]";						
+						else if(f.FRP==2)	header = "[P" + id.str() + "-IRTRY2]";
 						else				header = "[P" + id.str() + "-IRTRY]";	break;
+		case QUIET:		if(f.FRP==1)		header = "[P" + id.str() + "-QUIET1]";
+						else if(f.FRP==2)	header = "[P" + id.str() + "-QUIET2]";						
+						else				header = "[P" + id.str() + "-QUIET]";	break;
 		//Respond commands
 		case RD_RS:		header = "[P" + id.str() + "-RD_RS]";		break;		case WR_RS:		header = "[P" + id.str() + "-WR_RS]";		break;
 		case MD_RD_RS:	header = "[P" + id.str() + "-MD_RD_RS]";	break;		case MD_WR_RS:	header = "[P" + id.str() + "-MD_WR_RS]";	break;

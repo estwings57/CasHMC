@@ -1,11 +1,11 @@
 /*********************************************************************************
-*  CasHMC v1.2 - 2016.09.27
+*  CasHMC v1.3 - 2017.07.10
 *  A Cycle-accurate Simulator for Hybrid Memory Cube
 *
-*  Copyright (c) 2016, Dong-Ik Jeon
-*                      Ki-Seok Chung
-*                      Hanyang University
-*                      estwings57 [at] gmail [dot] com
+*  Copyright 2016, Dong-Ik Jeon
+*                  Ki-Seok Chung
+*                  Hanyang University
+*                  estwings57 [at] gmail [dot] com
 *  All rights reserved.
 *********************************************************************************/
 
@@ -22,8 +22,10 @@
 #include <fstream>		//ofstream
 #include <vector>		//vector
 
-#include "SimConfig.h"
+#include "ConfigReader.h"
+#include "ConfigValue.h"
 #include "TranStatistic.h"
+#include "CallBack.h"
 #include "HMCController.h"
 #include "Link.h"
 #include "HMC.h"
@@ -32,17 +34,20 @@ using namespace std;
 
 namespace CasHMC
 {
-	
+
 class CasHMCWrapper : public TranStatistic
 {
 public:
 	//
 	//Functions
 	//
-	CasHMCWrapper();
+	CasHMCWrapper(string simCfg, string dramCfg);
 	virtual ~CasHMCWrapper();
+	void RegisterCallbacks(TransCompCB *readCB, TransCompCB *writeCB);
 	bool ReceiveTran(TransactionType tranType, uint64_t addr, unsigned size);
 	bool ReceiveTran(Transaction *tran);
+	bool CanAcceptTran();
+	void UpdateMSHR(unsigned mshr);
 	void Update();
 	void DownLinkUpdate(bool lastUpdate);
 	void UpLinkUpdate(bool lastUpdate);
@@ -51,6 +56,7 @@ public:
 	void MakePlotData();
 	void PrintEpochStatistic();
 	void PrintFinalStatistic();
+	string DataScaling(double dataScale);
 	
 	//
 	//Fields
