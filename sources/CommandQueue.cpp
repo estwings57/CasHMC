@@ -212,10 +212,11 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 						//Search from beginning to find first issuable command
 						for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
 							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
-								//Check to make sure not removing a read/write that is paired with an activate
-								if(i>0
-								&& ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
-								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
+								//Check to make sure the last command is issued lastly,
+								//a read/write paried with an activaete will be considered
+								if (i>0
+								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG
+								&& ACCESSQUE(issuedBank)[i]->lastCMD)
 									continue;
 								
 								if(ACCESSQUE(issuedBank)[i]->atomic
