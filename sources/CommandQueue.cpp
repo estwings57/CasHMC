@@ -214,9 +214,7 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
 								//Check to make sure the last command is issued lastly,
 								//a read/write paried with an activaete will be considered
-								if (i>0
-								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG
-								&& ACCESSQUE(issuedBank)[i]->lastCMD)
+								if (i>0 && ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
 									continue;
 								
 								if(ACCESSQUE(issuedBank)[i]->atomic
