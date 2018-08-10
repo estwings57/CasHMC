@@ -391,45 +391,45 @@ bool VaultController::ConvPacketIntoCMDs(Packet *packet)
 		case P_WR128:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
 		case P_WR256:	tempCMD = OPEN_PAGE ? WRITE : WRITE_P;	tempPosted = true;	break;
 		//Read
-		case RD16:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD32:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD48:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD64:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD80:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD96:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD112:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD128:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case RD256:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
-		case MD_RD:		tempCMD = OPEN_PAGE ? READ : READ_P;	pendingReadData.push_back(packet->TAG);	break;
+		case RD16:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD32:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD48:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD64:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD80:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD96:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD112:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD128:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case RD256:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
+		case MD_RD:		tempCMD = OPEN_PAGE ? READ : READ_P;	break;
 		//Arithmetic atomic
-		case _2ADD8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case ADD16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case P_2ADD8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
-		case P_ADD16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
-		case _2ADDS8R:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case ADDS16R:	atomic = true;	tempCMD = READ; pendingReadData.push_back(packet->TAG);	break;
-		case INC8:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case P_INC8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break;
+		case _2ADD8:	atomic = true;	tempCMD = READ;	break;
+		case ADD16:		atomic = true;	tempCMD = READ;	break;
+		case P_2ADD8:	atomic = true;	tempCMD = READ;	tempPosted = true;	break;
+		case P_ADD16:	atomic = true;	tempCMD = READ;	tempPosted = true;	break;
+		case _2ADDS8R:	atomic = true;	tempCMD = READ;	break;
+		case ADDS16R:	atomic = true;	tempCMD = READ;	break;
+		case INC8:		atomic = true;	tempCMD = READ;	break;
+		case P_INC8:	atomic = true;	tempCMD = READ;	tempPosted = true;	break;
 		//Boolean atomic
-		case XOR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case OR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case NOR16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case AND16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case NAND16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case XOR16:		atomic = true;	tempCMD = READ;	break;
+		case OR16:		atomic = true;	tempCMD = READ;	break;
+		case NOR16:		atomic = true;	tempCMD = READ;	break;
+		case AND16:		atomic = true;	tempCMD = READ;	break;
+		case NAND16:	atomic = true;	tempCMD = READ;	break;
 		//Comparison atomic
-		case CASGT8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case CASLT8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case CASGT16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case CASLT16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case CASEQ8:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case CASZERO16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case EQ16:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case EQ8:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
+		case CASGT8:	atomic = true;	tempCMD = READ;	break;
+		case CASLT8:	atomic = true;	tempCMD = READ;	break;
+		case CASGT16:	atomic = true;	tempCMD = READ;	break;
+		case CASLT16:	atomic = true;	tempCMD = READ;	break;
+		case CASEQ8:	atomic = true;	tempCMD = READ;	break;
+		case CASZERO16:	atomic = true;	tempCMD = READ;	break;
+		case EQ16:		atomic = true;	tempCMD = READ;	break;
+		case EQ8:		atomic = true;	tempCMD = READ;	break;
 		//Bitwise atomic
-		case BWR:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;
-		case P_BWR:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	tempPosted = true;	break; 
-		case BWR8R:		atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break; 
-		case SWAP16:	atomic = true;	tempCMD = READ;	pendingReadData.push_back(packet->TAG);	break;											
+		case BWR:		atomic = true;	tempCMD = READ;	break;
+		case P_BWR:		atomic = true;	tempCMD = READ;	tempPosted = true;	break;
+		case BWR8R:		atomic = true;	tempCMD = READ;	break;
+		case SWAP16:	atomic = true;	tempCMD = READ;	break;
 		
 		default:
 			ERROR(header<<"  == Error - WRONG packet command type  (CurrentClock : "<<currentClockCycle<<")");

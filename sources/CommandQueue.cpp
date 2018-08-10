@@ -213,10 +213,17 @@ bool CommandQueue::CmdPop(DRAMCommand **popedCMD)
 						for(int i=0; i<ACCESSQUE(issuedBank).size(); i++) {
 							if(isIssuable(ACCESSQUE(issuedBank)[i])) {
 								//Check to make sure not removing a read/write that is paired with an activate
-								if(i>0
-								&& ACCESSQUE(issuedBank)[i-1]->commandType==ACTIVATE
-								&& ACCESSQUE(issuedBank)[i-1]->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG)
-									continue;
+								int j;
+								bool dependencyFound = false;
+									for(j=0; j<i; j++) {
+										DRAMCommand *prevCMD = ACCESSQUE(issuedBank)[j];
+										if(prevCMD->commandType==ACTIVATE
+										&& prevCMD->packetTAG==ACCESSQUE(issuedBank)[i]->packetTAG) {
+											dependencyFound = true;
+											break;
+										}
+									}
+								if(dependencyFound) continue;
 								
 								if(ACCESSQUE(issuedBank)[i]->atomic
 								&& (ACCESSQUE(issuedBank)[i]->packetCMD != EQ16
